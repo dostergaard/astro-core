@@ -1,0 +1,14 @@
+# astro-core/Cargo.toml
+[workspace]
+members = [
+    "astro-io",
+    "astro-metadata",
+    "astro-metrics",
+]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Your Name <your.email@example.com>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/dostergaard/astro-core"

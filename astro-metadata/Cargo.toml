@@ -1,0 +1,16 @@
+[package]
+name = "astro-metadata"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Metadata handling for astronomical images"
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+fitsio = "0.21.2"
+log = "0.4.20"
