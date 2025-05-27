@@ -8,7 +8,21 @@ members = [
 
 [workspace.package]
 version = "0.1.0"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Dean Ostergaard <dean@deanostergaard.com>"]
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/dostergaard/astro-core"
+
+[package]
+name = "astro-core"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core libraries for astronomical image file analysis and manipulation."
+
+[dependencies]
+astro-io = { path = "./astro-io", version = "0.1.0" }
+astro-metadata = { path = "./astro-metadata", version = "0.1.0" }
+astro-metrics = { path = "./astro-metrics", version = "0.1.0" }

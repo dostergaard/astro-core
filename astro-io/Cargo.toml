@@ -10,7 +10,7 @@ description = "I/O operations for astronomical image formats"
 [dependencies]
 anyhow = "1.0"
 thiserror = "1.0"
-fitsio = "0.21"
+fitsio = { version = "0.21", features = ["fitsio-src"] }
 quick-xml = "0.30"
 astro-metadata = { path = "../astro-metadata", version = "0.1.0" }
 byteorder = "1.5.0"
