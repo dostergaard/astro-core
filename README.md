@@ -12,8 +12,7 @@ The project is organized into several specialized crates:
 
 ### astro-io
 
-[![Crate](https://img.shields.io/crates/v/astro-io.svg)](https://crates.io/crates/astro-io)
-[![Documentation](https://docs.rs/astro-io/badge.svg)](https://docs.rs/astro-io)
+*Crate not yet published*
 
 Handles I/O operations for astronomical image formats:
 - FITS file loading and saving
@@ -27,8 +26,7 @@ use astro_io::xisf::XisfLoader;
 
 ### astro-metadata
 
-[![Crate](https://img.shields.io/crates/v/astro-metadata.svg)](https://crates.io/crates/astro-metadata)
-[![Documentation](https://docs.rs/astro-metadata/badge.svg)](https://docs.rs/astro-metadata)
+*Crate not yet published*
 
 Provides metadata extraction and handling for astronomical images:
 - Comprehensive metadata type definitions
@@ -47,8 +45,7 @@ use astro_metadata::xisf_parser::XisfMetadataParser;
 
 ### astro-metrics
 
-[![Crate](https://img.shields.io/crates/v/astro-metrics.svg)](https://crates.io/crates/astro-metrics)
-[![Documentation](https://docs.rs/astro-metrics/badge.svg)](https://docs.rs/astro-metrics)
+*Crate not yet published*
 
 Implements statistical metrics for astronomical images:
 - Star detection and measurement
