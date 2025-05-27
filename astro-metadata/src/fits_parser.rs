@@ -4,7 +4,9 @@
 //! and convert it into the AstroMetadata structure.
 
 use std::collections::HashMap;
-use anyhow::Result;
+use std::fs::File;
+use std::path::Path;
+use anyhow::{Result, Context};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use fitsio::FitsFile;
 use log::warn;
@@ -12,6 +14,12 @@ use log::warn;
 use super::types::{
     AstroMetadata, Equipment, Detector, Filter, Exposure, Mount, Environment, WcsData
 };
+
+/// Extract metadata from a FITS file path
+pub fn extract_metadata_from_path(path: &Path) -> Result<AstroMetadata> {
+    let mut fits_file = FitsFile::open(path).context("Failed to open FITS file")?;
+    extract_metadata(&mut fits_file)
+}
 
 /// Extract metadata from a FITS file
 pub fn extract_metadata(fits_file: &mut FitsFile) -> Result<AstroMetadata> {
@@ -226,18 +234,8 @@ fn parse_environment(headers: &HashMap<String, String>) -> Option<Environment> {
         env.software_version = Some(format!("NINA {}", nina_ver));
     } else if let Some(ekos_ver) = get_string_header(headers, &["EKOS-VERSION"]) {
         env.software_version = Some(format!("EKOS {}", ekos_ver));
-    }
-    
-    // Plugin info
-    let mut plugins = Vec::new();
-    for (key, value) in headers {
-        if key.starts_with("NINA-PLUGIN-") || key.starts_with("EKOS-PLUGIN-") {
-            plugins.push(format!("{}: {}", key, value));
-        }
-    }
-    
-    if !plugins.is_empty() {
-        env.plugin_info = Some(plugins.join(", "));
+    } else if let Some(software) = get_string_header(headers, &["SWCREATE", "SOFTWARE"]) {
+        env.software_version = Some(software);
     }
     
     Some(env)
@@ -246,53 +244,40 @@ fn parse_environment(headers: &HashMap<String, String>) -> Option<Environment> {
 /// Parse WCS information from FITS headers
 fn parse_wcs(headers: &HashMap<String, String>) -> Option<WcsData> {
     // Check if we have any WCS information
-    if !headers.contains_key("CTYPE1") && 
-       !headers.contains_key("CRPIX1") && 
-       !headers.contains_key("CRVAL1") {
+    if !headers.contains_key("CRPIX1") && 
+       !headers.contains_key("CRPIX2") && 
+       !headers.contains_key("CRVAL1") && 
+       !headers.contains_key("CRVAL2") {
         return None;
     }
     
     let mut wcs = WcsData::default();
     
+    // Reference pixel coordinates
+    wcs.crpix1 = get_float_header(headers, &["CRPIX1"]).map(|v| v as f64);
+    wcs.crpix2 = get_float_header(headers, &["CRPIX2"]).map(|v| v as f64);
+    
+    // Reference pixel values (usually RA/DEC in degrees)
+    wcs.crval1 = get_float_header(headers, &["CRVAL1"]).map(|v| v as f64);
+    wcs.crval2 = get_float_header(headers, &["CRVAL2"]).map(|v| v as f64);
+    
+    // CD matrix elements (transformation matrix)
+    wcs.cd1_1 = get_float_header(headers, &["CD1_1"]).map(|v| v as f64);
+    wcs.cd1_2 = get_float_header(headers, &["CD1_2"]).map(|v| v as f64);
+    wcs.cd2_1 = get_float_header(headers, &["CD2_1"]).map(|v| v as f64);
+    wcs.cd2_2 = get_float_header(headers, &["CD2_2"]).map(|v| v as f64);
+    
+    // Coordinate system
     wcs.ctype1 = get_string_header(headers, &["CTYPE1"]);
     wcs.ctype2 = get_string_header(headers, &["CTYPE2"]);
-    wcs.crpix1 = get_double_header(headers, &["CRPIX1"]);
-    wcs.crpix2 = get_double_header(headers, &["CRPIX2"]);
-    wcs.crval1 = get_double_header(headers, &["CRVAL1"]);
-    wcs.crval2 = get_double_header(headers, &["CRVAL2"]);
-    wcs.cd1_1 = get_double_header(headers, &["CD1_1"]);
-    wcs.cd1_2 = get_double_header(headers, &["CD1_2"]);
-    wcs.cd2_1 = get_double_header(headers, &["CD2_1"]);
-    wcs.cd2_2 = get_double_header(headers, &["CD2_2"]);
-    wcs.crota2 = get_double_header(headers, &["CROTA2"]);
-    wcs.airmass = get_float_header(headers, &["AIRMASS"]);
-    wcs.altitude = get_float_header(headers, &["ALT-OBS", "ALTITUDE"]);
-    wcs.azimuth = get_float_header(headers, &["AZ-OBS", "AZIMUTH"]);
+    
+    // Note: If we need to store equinox information, we would need to add
+    // an equinox field to the WcsData struct
     
     Some(wcs)
 }
 
-/// Helper function to parse date/time strings
-fn parse_date_time(date_str: &str) -> Option<DateTime<Utc>> {
-    // Try different date formats
-    let formats = [
-        "%Y-%m-%dT%H:%M:%S%.f",  // ISO 8601 with fractional seconds
-        "%Y-%m-%dT%H:%M:%S",     // ISO 8601 without fractional seconds
-        "%Y-%m-%d %H:%M:%S%.f",  // Space-separated with fractional seconds
-        "%Y-%m-%d %H:%M:%S",     // Space-separated without fractional seconds
-    ];
-    
-    for format in &formats {
-        if let Ok(dt) = NaiveDateTime::parse_from_str(date_str, format) {
-            return Some(DateTime::from_naive_utc_and_offset(dt, Utc));
-        }
-    }
-    
-    warn!("Failed to parse date string: {}", date_str);
-    None
-}
-
-/// Helper function to get a string value from headers, trying multiple keys
+/// Helper function to get a string value from headers
 fn get_string_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<String> {
     for key in keys {
         if let Some(value) = headers.get(*key) {
@@ -304,7 +289,7 @@ fn get_string_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option
     None
 }
 
-/// Helper function to get a float value from headers, trying multiple keys
+/// Helper function to get a float value from headers
 fn get_float_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<f32> {
     for key in keys {
         if let Some(value) = headers.get(*key) {
@@ -316,22 +301,7 @@ fn get_float_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<
     None
 }
 
-/// Helper function to get a double value from headers, trying multiple keys
-fn get_double_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<f64> {
-    for key in keys {
-        if let Some(value) = headers.get(*key) {
-            if let Ok(double_val) = value.parse::<f64>() {
-                return Some(double_val);
-            } else if let Ok(float_val) = value.parse::<f32>() {
-                // Try parsing as f32 and convert to f64 if needed
-                return Some(float_val as f64);
-            }
-        }
-    }
-    None
-}
-
-/// Helper function to get an integer value from headers, trying multiple keys
+/// Helper function to get an integer value from headers
 fn get_int_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<i32> {
     for key in keys {
         if let Some(value) = headers.get(*key) {
@@ -340,5 +310,39 @@ fn get_int_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<i3
             }
         }
     }
+    None
+}
+
+/// Parse sexagesimal format (HH MM SS or DD MM SS) to decimal degrees
+fn parse_sexagesimal(value: &str) -> Option<f64> {
+    let parts: Vec<&str> = value.split_whitespace().collect();
+    if parts.len() >= 3 {
+        if let (Ok(h), Ok(m), Ok(s)) = (parts[0].parse::<f64>(), parts[1].parse::<f64>(), parts[2].parse::<f64>()) {
+            let sign = if h < 0.0 || value.starts_with('-') { -1.0 } else { 1.0 };
+            return Some(sign * (h.abs() + m / 60.0 + s / 3600.0));
+        }
+    }
+    None
+}
+
+/// Helper function to parse date/time strings
+fn parse_date_time(date_str: &str) -> Option<DateTime<Utc>> {
+    // Try different date formats
+    let formats = [
+        "%Y-%m-%dT%H:%M:%S%.fZ",   // ISO 8601 with Z suffix
+        "%Y-%m-%dT%H:%M:%SZ",      // ISO 8601 with Z suffix, no fractional seconds
+        "%Y-%m-%dT%H:%M:%S%.f",    // ISO 8601 with fractional seconds
+        "%Y-%m-%dT%H:%M:%S",       // ISO 8601 without fractional seconds
+        "%Y-%m-%d %H:%M:%S%.f",    // Space-separated with fractional seconds
+        "%Y-%m-%d %H:%M:%S",       // Space-separated without fractional seconds
+    ];
+    
+    for format in &formats {
+        if let Ok(dt) = NaiveDateTime::parse_from_str(date_str, format) {
+            return Some(DateTime::from_naive_utc_and_offset(dt, Utc));
+        }
+    }
+    
+    warn!("Failed to parse date string: {}", date_str);
     None
 }
