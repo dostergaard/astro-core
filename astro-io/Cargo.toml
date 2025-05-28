@@ -12,6 +12,6 @@ anyhow = "1.0"
 thiserror = "1.0"
 fitsio = { version = "0.21", features = ["fitsio-src"] }
 quick-xml = "0.30"
-astro-metadata = { path = "../astro-metadata", version = "0.1.0" }
+astro-metadata = { path = "../astro-metadata", version = "0.2.0" }
 byteorder = "1.5.0"
 flate2 = "1.0.28"
