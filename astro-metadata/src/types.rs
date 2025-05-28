@@ -105,6 +105,8 @@ pub struct Exposure {
     pub dec: Option<f64>,
     /// Observation date/time (UTC)
     pub date_obs: Option<DateTime<Utc>>,
+    /// Session date (calculated from date_obs by subtracting 12 hours)
+    pub session_date: Option<DateTime<Utc>>,
     /// Exposure time in seconds
     pub exposure_time: Option<f32>,
     /// Frame type (LIGHT, DARK, BIAS, FLAT)
@@ -126,6 +128,12 @@ pub struct Mount {
     pub pier_side: Option<String>,
     /// Whether a meridian flip occurred
     pub meridian_flip: Option<bool>,
+    /// Observatory latitude in degrees (+ north, - south)
+    pub latitude: Option<f64>,
+    /// Observatory longitude in degrees (+ east, - west)
+    pub longitude: Option<f64>,
+    /// Observatory height above sea level in meters
+    pub height: Option<f64>,
     /// Guide camera information
     pub guide_camera: Option<String>,
     /// Guide RMS error
@@ -272,6 +280,36 @@ impl AstroMetadata {
             Some((width_arcmin, height_arcmin))
         } else {
             None
+        }
+    }
+    
+    /// Calculate approximate time zone offset in hours from longitude
+    fn approximate_timezone_from_longitude(&self) -> Option<i32> {
+        self.mount.as_ref()
+            .and_then(|mount| mount.longitude)
+            .map(|longitude| (longitude / 15.0).round() as i32)
+    }
+    
+    /// Calculate the session date using location information if available
+    pub fn calculate_session_date(&mut self) {
+        if let Some(date_obs) = self.exposure.date_obs {
+            // Default to UTC time
+            let mut local_time = date_obs;
+            
+            // If we have longitude information, adjust for approximate local time
+            if let Some(tz_offset) = self.approximate_timezone_from_longitude() {
+                local_time = date_obs + chrono::Duration::hours(tz_offset as i64);
+            }
+            
+            // Get the date at noon (12:00) on the same day in the adjusted time
+            let noon = local_time.date().and_hms_opt(12, 0, 0).unwrap();
+            
+            // If the adjusted observation time is before noon, use the previous day's noon
+            self.exposure.session_date = if local_time < noon {
+                Some(noon - chrono::Duration::days(1))
+            } else {
+                Some(noon)
+            };
         }
     }
 }

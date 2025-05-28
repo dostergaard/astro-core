@@ -63,6 +63,9 @@ pub fn extract_metadata<R: Read + Seek>(reader: &mut R) -> Result<AstroMetadata>
     metadata.raw_headers = raw_headers;
     metadata.xisf = Some(xisf_metadata);
     
+    // Calculate session date
+    metadata.calculate_session_date();
+    
     Ok(metadata)
 }
 
@@ -446,6 +449,35 @@ fn process_fits_keyword(metadata: &mut AstroMetadata, name: &str, value: &str) {
                 let mut wcs = super::types::WcsData::default();
                 wcs.crpix2 = value.parse().ok();
                 metadata.wcs = Some(wcs);
+            }
+        },
+        
+        // Observatory location
+        "SITELAT" | "OBSLAT" => {
+            if let Some(ref mut mount) = metadata.mount {
+                mount.latitude = value.parse().ok();
+            } else {
+                let mut mount = super::types::Mount::default();
+                mount.latitude = value.parse().ok();
+                metadata.mount = Some(mount);
+            }
+        },
+        "SITELONG" | "OBSLONG" => {
+            if let Some(ref mut mount) = metadata.mount {
+                mount.longitude = value.parse().ok();
+            } else {
+                let mut mount = super::types::Mount::default();
+                mount.longitude = value.parse().ok();
+                metadata.mount = Some(mount);
+            }
+        },
+        "SITEELEV" | "OBSELEV" => {
+            if let Some(ref mut mount) = metadata.mount {
+                mount.height = value.parse().ok();
+            } else {
+                let mut mount = super::types::Mount::default();
+                mount.height = value.parse().ok();
+                metadata.mount = Some(mount);
             }
         },
         

@@ -67,6 +67,9 @@ pub fn extract_metadata(fits_file: &mut FitsFile) -> Result<AstroMetadata> {
     // Store raw headers for any fields we didn't explicitly parse
     metadata.raw_headers = raw_headers;
     
+    // Calculate session date
+    metadata.calculate_session_date();
+    
     Ok(metadata)
 }
 
@@ -186,7 +189,9 @@ fn parse_mount(headers: &HashMap<String, String>) -> Option<Mount> {
     // Check if we have any mount information
     if !headers.contains_key("PIERSIDE") && 
        !headers.contains_key("MFLIP") && 
-       !headers.contains_key("GUIDERMS") {
+       !headers.contains_key("GUIDERMS") &&
+       !headers.contains_key("SITELAT") &&
+       !headers.contains_key("OBSLAT") {
         return None;
     }
     
@@ -198,6 +203,11 @@ fn parse_mount(headers: &HashMap<String, String>) -> Option<Mount> {
     if let Some(mflip_str) = get_string_header(headers, &["MFLIP", "MFOC"]) {
         mount.meridian_flip = Some(mflip_str.to_lowercase() == "true" || mflip_str == "1");
     }
+    
+    // Observatory location
+    mount.latitude = get_float_header(headers, &["SITELAT", "OBSLAT"]).map(|v| v as f64);
+    mount.longitude = get_float_header(headers, &["SITELONG", "OBSLONG"]).map(|v| v as f64);
+    mount.height = get_float_header(headers, &["SITEELEV", "OBSELEV"]).map(|v| v as f64);
     
     mount.guide_camera = get_string_header(headers, &["GUIDECAM"]);
     mount.guide_rms = get_float_header(headers, &["GUIDERMS"]);
