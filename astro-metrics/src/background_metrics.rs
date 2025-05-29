@@ -1,14 +1,6 @@
 //! Background metrics for astronomical images
 
-/// Holds background statistics for an image
-#[derive(Debug, Clone)]
-pub struct BackgroundMetrics {
-    pub median: f32,       // median background level
-    pub rms: f32,          // background noise level (RMS)
-    pub min: f32,          // minimum background level
-    pub max: f32,          // maximum background level
-    pub uniformity: f32,   // measure of background uniformity (0-1, higher is more uniform)
-}
+use crate::types::BackgroundMetrics;
 
 impl BackgroundMetrics {
     /// Create a new BackgroundMetrics instance with basic values

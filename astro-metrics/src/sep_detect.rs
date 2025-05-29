@@ -3,8 +3,7 @@
 use std::ffi::{c_int, CStr};
 use anyhow::{Result, anyhow};
 use sep_sys as sep;
-use super::star_metrics::{StarMetrics, StarStats};
-use super::background_metrics::BackgroundMetrics;
+use crate::types::{StarMetrics, StarStats, BackgroundMetrics};
  
 /// Detect stars using SEP's built-in background estimation and object detection
 pub fn detect_stars_with_sep_background(

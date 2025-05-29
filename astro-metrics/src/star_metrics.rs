@@ -2,20 +2,7 @@
 
 use std::ffi::c_int;
 use anyhow::{Result, anyhow};
-
-/// Measurements for a single detected star
-#[derive(Debug, Clone)]
-pub struct StarMetrics {
-    pub x: f64,         // x centroid
-    pub y: f64,         // y centroid
-    pub flux: f32,      // total flux
-    pub peak: f32,      // peak value
-    pub a: f32,         // semi-major axis
-    pub b: f32,         // semi-minor axis
-    pub theta: f32,     // position angle
-    pub eccentricity: f32, // derived from a and b
-    pub fwhm: f32,      // derived from a and b
-}
+use crate::types::{StarMetrics, StarStats};
 
 impl StarMetrics {
     /// Calculate FWHM as average of semi-major and semi-minor axes
@@ -31,16 +18,6 @@ impl StarMetrics {
             self.eccentricity = (1.0 - (self.b * self.b) / (self.a * self.a)).sqrt();
         }
     }
-}
-
-/// Aggregate statistics for a collection of stars
-#[derive(Debug)]
-pub struct StarStats {
-    pub count: usize,           // total number of stars detected
-    pub median_fwhm: f32,       // median FWHM across all stars
-    pub median_eccentricity: f32, // median eccentricity across all stars
-    pub fwhm_std_dev: f32,      // standard deviation of FWHM
-    pub eccentricity_std_dev: f32, // standard deviation of eccentricity
 }
 
 impl StarStats {
