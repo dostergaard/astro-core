@@ -96,6 +96,10 @@ fn parse_equipment(equipment: &mut Equipment, headers: &HashMap<String, String>)
     }
     
     equipment.mount_model = get_string_header(headers, &["MOUNT"]);
+    
+    // Focuser information
+    equipment.focuser_position = get_int_header(headers, &["FOCPOS", "FOCUSPOS"]);
+    equipment.focuser_temperature = get_float_header(headers, &["FOCTEMP", "FOCUSTEMP"]);
 }
 
 /// Parse detector information from FITS headers
@@ -129,11 +133,15 @@ fn parse_detector(detector: &mut Detector, headers: &HashMap<String, String>, hd
     
     // Camera settings
     detector.gain = get_float_header(headers, &["GAIN", "EGAIN"]);
+    detector.offset = get_int_header(headers, &["OFFSET", "CCDOFFST"]);
+    detector.readout_mode = get_string_header(headers, &["READOUT", "READOUTM"]);
+    detector.usb_limit = get_string_header(headers, &["USBLIMIT", "USBTRFC"]);
     detector.read_noise = get_float_header(headers, &["RDNOISE"]);
     detector.temperature = get_float_header(headers, &["CCD-TEMP", "CCDTEMP"]);
     detector.temp_setpoint = get_float_header(headers, &["CCD-TEMP-SETPOINT", "SET-TEMP"]);
     detector.cooler_power = get_float_header(headers, &["COOL-PWR", "COOLPWR"]);
     detector.cooler_status = get_string_header(headers, &["COOL-STAT", "COOLSTAT"]);
+    detector.rotator_angle = get_float_header(headers, &["ROTANG", "ROTPA", "ROTATANG"]);
 }
 
 /// Parse filter information from FITS headers
@@ -182,6 +190,10 @@ fn parse_exposure(exposure: &mut Exposure, headers: &HashMap<String, String>) {
     // Dither offsets
     exposure.dither_offset_x = get_float_header(headers, &["DX", "DITHX"]);
     exposure.dither_offset_y = get_float_header(headers, &["DY", "DITHY"]);
+    
+    // Scheduler information
+    exposure.project_name = get_string_header(headers, &["PROJECT", "PROJNAME"]);
+    exposure.session_id = get_string_header(headers, &["SESSIONID", "SESSID"]);
 }
 
 /// Parse mount information from FITS headers
@@ -218,6 +230,10 @@ fn parse_mount(headers: &HashMap<String, String>) -> Option<Mount> {
         mount.dither_enabled = Some(dither_str.to_lowercase() == "true" || dither_str == "1");
     }
     
+    // Peak guiding errors
+    mount.peak_ra_error = get_float_header(headers, &["PEAKRA", "PEAKRAER"]);
+    mount.peak_dec_error = get_float_header(headers, &["PEAKDEC", "PEAKDCER"]);
+    
     Some(mount)
 }
 
@@ -227,7 +243,8 @@ fn parse_environment(headers: &HashMap<String, String>) -> Option<Environment> {
     if !headers.contains_key("AMB_TEMP") && 
        !headers.contains_key("HUMIDITY") && 
        !headers.contains_key("NINA-VERSION") && 
-       !headers.contains_key("EKOS-VERSION") {
+       !headers.contains_key("EKOS-VERSION") &&
+       !headers.contains_key("SQM") {
         return None;
     }
     
@@ -238,6 +255,7 @@ fn parse_environment(headers: &HashMap<String, String>) -> Option<Environment> {
     env.dew_heater_power = get_float_header(headers, &["DEWPOWER", "DEWPWR"]);
     env.voltage = get_float_header(headers, &["VOLTAGE", "SYSVOLT"]);
     env.current = get_float_header(headers, &["CURRENT", "SYSCURR"]);
+    env.sqm = get_float_header(headers, &["SQM", "SQMMAG", "SKYQUAL"]);
     
     // Software version
     if let Some(nina_ver) = get_string_header(headers, &["NINA-VERSION"]) {

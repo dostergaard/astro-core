@@ -481,6 +481,51 @@ fn process_fits_keyword(metadata: &mut AstroMetadata, name: &str, value: &str) {
             }
         },
         
+        // Detector information
+        "OFFSET" | "CCDOFFST" => metadata.detector.offset = value.parse().ok(),
+        "READOUT" | "READOUTM" => metadata.detector.readout_mode = Some(value.to_string()),
+        "USBLIMIT" | "USBTRFC" => metadata.detector.usb_limit = Some(value.to_string()),
+        "ROTANG" | "ROTPA" | "ROTATANG" => metadata.detector.rotator_angle = value.parse().ok(),
+        
+        // Equipment information
+        "FOCPOS" | "FOCUSPOS" => metadata.equipment.focuser_position = value.parse().ok(),
+        "FOCTEMP" | "FOCUSTEMP" => metadata.equipment.focuser_temperature = value.parse().ok(),
+        
+        // Mount information
+        "PEAKRA" | "PEAKRAER" => {
+            if let Some(ref mut mount) = metadata.mount {
+                mount.peak_ra_error = value.parse().ok();
+            } else {
+                let mut mount = super::types::Mount::default();
+                mount.peak_ra_error = value.parse().ok();
+                metadata.mount = Some(mount);
+            }
+        },
+        "PEAKDEC" | "PEAKDCER" => {
+            if let Some(ref mut mount) = metadata.mount {
+                mount.peak_dec_error = value.parse().ok();
+            } else {
+                let mut mount = super::types::Mount::default();
+                mount.peak_dec_error = value.parse().ok();
+                metadata.mount = Some(mount);
+            }
+        },
+        
+        // Environment information
+        "SQM" | "SQMMAG" | "SKYQUAL" => {
+            if let Some(ref mut env) = metadata.environment {
+                env.sqm = value.parse().ok();
+            } else {
+                let mut env = super::types::Environment::default();
+                env.sqm = value.parse().ok();
+                metadata.environment = Some(env);
+            }
+        },
+        
+        // Exposure information
+        "PROJECT" | "PROJNAME" => metadata.exposure.project_name = Some(value.to_string()),
+        "SESSIONID" | "SESSID" => metadata.exposure.session_id = Some(value.to_string()),
+        
         // Ignore other keywords
         _ => {}
     }

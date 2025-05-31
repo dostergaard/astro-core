@@ -1,0 +1,50 @@
+Category,Patterrn Name,Description
+Time,,
+,$$APPLICATIONSTARTDATE$$,Application start date with format YYY-MM-DD
+,$$DATE$$,Date with format YYY-MM-DD
+,$$DATEMINUS12$$,Date shifted back 12 hours with format YYY-MM-DD
+,$$DATETIME$$,Date with format YYY-MM-DD_HH-mm-ss
+,$$DATEUTC$$,UTC date with format YYY-MM-DD
+,$$TIME$$,Time with format HH-mm-ss
+,$$TIMEUTC$$,UTC time with format HH-mm-ss
+Camera,,
+,$$BINNING$$,Camera binning
+,$$CAMERA$$,Camera name
+,$$GAIN$$,Camera gain
+,$$OFFSET$$,Camera offset
+,$$READOUTMODES$$,Camera readoutmode
+,$$SENSORTEMP$$,Camera sensor temperature
+,$$TEMPERATURESETPOINT$$,Camera sensor temperature setpoint
+,$$USBLIMIT$$,Camera USB speed or traffic limit setting
+Hocus Focus,,
+,$$ECCENTRICITY$$,Star eccentricity as calculated by Hocus Focus
+,$$FWHM$$,Star Full Width Half Maximum as calculated by Hocus Focus
+Image,,
+,$$EXPOSURETIME$$,Camera exposure time in seconds
+,$$FRAMENR$$,Number of the frame with format ####
+,$$HFR$$,Calculated HFR of image (HFR detection has to be enabled)
+,$$IMAGETYPE$$,"Light, Flat, Dark, Bias, Snapshot"
+,$$SEQUENCETITLE$$,Current sequence title
+,$$STARCOUNT$$,Star count
+,$$TARGETNAME$$,Target name A(if available)
+Filter Wheel,,
+,$$FILTER$$,Filter name
+Focuser,,
+,$$FOCUSERPOSITION$$,Current focuser position
+,$$FOCUSERTEMP$$,Focuser temperature
+Guider,,
+, $$PEAKDEC$$,Peak DEC guiding error during exposure in pixels
+,$$PEAKDECARCSEC$$,Peak DEC guiding error during exposure in arc seconds
+,$$PEAKRA$$,Peak RA guiding error during exposure in pixels
+,$$PEAKRAARCSEC$$,Peak RA guiding error during exposure in arc seconds
+,$$RMS$$,Root mean square error of guiding during exposure in pixels
+,$$RMSARCSEC$$,Root mean square error of guiding during exposure in arc seconds
+Rotator,,
+,$$ROTATORANGLE$$,Angle of the rotator
+Weather,,
+,$$SQM$$,Sky Quality Meter reading
+Telescope,,
+,$$TELESCOPE$$,Telescope name
+Target Scheduler,,
+,$$TSPROJECTNAME$$,Target Scheduler project name (if available)
+,$$TSSESSIONID$$,Session identifier for working with Target Scheduler lights and flats

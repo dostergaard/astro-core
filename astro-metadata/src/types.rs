@@ -50,6 +50,10 @@ pub struct Equipment {
     pub reducer_flattener: Option<String>,
     /// Mount model
     pub mount_model: Option<String>,
+    /// Focuser position
+    pub focuser_position: Option<i32>,
+    /// Focuser temperature in °C
+    pub focuser_temperature: Option<f32>,
 }
 
 /// Detector and camera settings
@@ -69,6 +73,12 @@ pub struct Detector {
     pub binning_y: usize,
     /// Gain in e-/ADU
     pub gain: Option<f32>,
+    /// Camera offset value
+    pub offset: Option<i32>,
+    /// Camera readout mode
+    pub readout_mode: Option<String>,
+    /// USB limit setting (speed or traffic)
+    pub usb_limit: Option<String>,
     /// Read noise in e-
     pub read_noise: Option<f32>,
     /// Full well capacity in e-
@@ -81,6 +91,8 @@ pub struct Detector {
     pub cooler_power: Option<f32>,
     /// Cooler status
     pub cooler_status: Option<String>,
+    /// Rotator angle in degrees
+    pub rotator_angle: Option<f32>,
 }
 
 /// Filter information
@@ -119,6 +131,10 @@ pub struct Exposure {
     pub dither_offset_x: Option<f32>,
     /// Dither offset in Y direction
     pub dither_offset_y: Option<f32>,
+    /// Project name (for scheduler)
+    pub project_name: Option<String>,
+    /// Session identifier
+    pub session_id: Option<String>,
 }
 
 /// Mount and guiding information
@@ -142,6 +158,10 @@ pub struct Mount {
     pub guide_scale: Option<f32>,
     /// Whether dithering was enabled
     pub dither_enabled: Option<bool>,
+    /// Peak RA guiding error during exposure in pixels
+    pub peak_ra_error: Option<f32>,
+    /// Peak DEC guiding error during exposure in pixels
+    pub peak_dec_error: Option<f32>,
 }
 
 /// Environmental data
@@ -161,6 +181,8 @@ pub struct Environment {
     pub software_version: Option<String>,
     /// Plugin information
     pub plugin_info: Option<String>,
+    /// Sky Quality Meter reading in mag/arcsec²
+    pub sqm: Option<f32>,
 }
 
 /// World Coordinate System data
