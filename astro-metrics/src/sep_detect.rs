@@ -126,6 +126,14 @@ pub fn detect_stars_sep(
             median_eccentricity: 0.0,
             fwhm_std_dev: 0.0,
             eccentricity_std_dev: 0.0,
+            median_kron_radius: 0.0,
+            median_flux: 0.0,
+            median_snr: 0.0,
+            median_elongation: 0.0,
+            flagged_fraction: 0.0,
+            kron_radius_std_dev: 0.0,
+            flux_std_dev: 0.0,
+            snr_std_dev: 0.0,
         });
     }
 
@@ -199,6 +207,19 @@ pub fn detect_stars_sep(
             let flux = *(*catalog).flux.add(i);
             let peak = *(*catalog).peak.add(i);
 
+            // Extract additional metrics from SEP catalog
+            let npix = (*catalog).npix.add(i) as usize;
+            let flag = *(*catalog).flag.add(i) as u8;
+            
+            // Calculate derived metrics
+            let elongation = if a > 0.0 && b > 0.0 { a / b } else { 1.0 };
+            
+            // These would require additional SEP function calls, using defaults for now
+            // TODO: Implement sep_kron_radius and sep_sum_ellipse calls
+            let kron_radius = 0.0;
+            let flux_auto = flux;
+            let fluxerr_auto = 0.0;
+            
             let mut star = StarMetrics {
                 x,
                 y,
@@ -209,6 +230,12 @@ pub fn detect_stars_sep(
                 theta,
                 eccentricity: 0.0,
                 fwhm: 0.0,
+                kron_radius,
+                flux_auto,
+                fluxerr_auto,
+                npix,
+                elongation,
+                flag,
             };
 
             // Calculate derived metrics

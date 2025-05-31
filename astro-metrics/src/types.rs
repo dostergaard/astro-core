@@ -27,6 +27,18 @@ pub struct StarMetrics {
     pub eccentricity: f32,
     /// Full Width at Half Maximum (derived from a and b)
     pub fwhm: f32,
+    /// Kron radius (radius containing 50% of flux)
+    pub kron_radius: f32,
+    /// Total flux in automatic aperture
+    pub flux_auto: f32,
+    /// Error on flux_auto
+    pub fluxerr_auto: f32,
+    /// Number of pixels in the object
+    pub npix: usize,
+    /// Elongation (a/b, alternative to eccentricity)
+    pub elongation: f32,
+    /// Extraction flag (blending, saturation, etc.)
+    pub flag: u8,
 }
 
 /// Aggregate statistics for a collection of stars
@@ -42,6 +54,22 @@ pub struct StarStats {
     pub fwhm_std_dev: f32,
     /// Standard deviation of eccentricity
     pub eccentricity_std_dev: f32,
+    /// Median Kron radius
+    pub median_kron_radius: f32,
+    /// Median flux
+    pub median_flux: f32,
+    /// Median signal-to-noise ratio (calculated from flux/fluxerr)
+    pub median_snr: f32,
+    /// Median elongation
+    pub median_elongation: f32,
+    /// Fraction of stars with flag != 0
+    pub flagged_fraction: f32,
+    /// Standard deviation of Kron radius
+    pub kron_radius_std_dev: f32,
+    /// Standard deviation of flux
+    pub flux_std_dev: f32,
+    /// Standard deviation of SNR
+    pub snr_std_dev: f32,
 }
 
 /// Holds background statistics for an image
@@ -62,20 +90,29 @@ pub struct BackgroundMetrics {
 /// Weights for calculating overall quality score
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct QualityWeights {
-    /// Weight for FWHM score (default: 0.4)
+    /// Weight for FWHM score (default: 0.3)
     pub fwhm: f32,
-    /// Weight for eccentricity score (default: 0.3)
+    /// Weight for eccentricity score (default: 0.2)
     pub eccentricity: f32,
-    /// Weight for background score (default: 0.3)
+    /// Weight for background score (default: 0.2)
     pub background: f32,
+    /// Weight for Kron radius score (default: 0.15)
+    pub kron_radius: f32,
+    /// Weight for SNR score (default: 0.1)
+    pub snr: f32,
+    /// Weight for flag score (default: 0.05)
+    pub flag: f32,
 }
 
 impl Default for QualityWeights {
     fn default() -> Self {
         Self {
-            fwhm: 0.4,
-            eccentricity: 0.3,
-            background: 0.3,
+            fwhm: 0.3,
+            eccentricity: 0.2,
+            background: 0.2,
+            kron_radius: 0.15,
+            snr: 0.1,
+            flag: 0.05,
         }
     }
 }
@@ -90,6 +127,12 @@ pub struct QualityScores {
     pub eccentricity: f32,
     /// Background score (higher means better background)
     pub background: f32,
+    /// Kron radius score (higher means tighter stars)
+    pub kron_radius: f32,
+    /// SNR score (higher means better signal-to-noise ratio)
+    pub snr: f32,
+    /// Flag score (higher means fewer flagged stars)
+    pub flag: f32,
     /// Overall quality score (weighted average of scores)
     pub overall: f32,
 }

@@ -32,7 +32,7 @@ impl StarStats {
             &sorted_stars
         };
 
-        // Calculate medians
+        // Calculate medians for basic metrics
         let mut fwhm_values: Vec<f32> = stars_to_use.iter().map(|s| s.fwhm).collect();
         let mut ecc_values: Vec<f32> = stars_to_use.iter().map(|s| s.eccentricity).collect();
         
@@ -51,9 +51,42 @@ impl StarStats {
             0.0
         };
 
-        // Calculate standard deviations
+        // Calculate standard deviations for basic metrics
         let fwhm_std_dev = calculate_std_dev(&fwhm_values);
         let eccentricity_std_dev = calculate_std_dev(&ecc_values);
+
+        // Calculate medians for additional metrics
+        let mut kron_values: Vec<f32> = stars_to_use.iter().map(|s| s.kron_radius).collect();
+        let mut flux_values: Vec<f32> = stars_to_use.iter().map(|s| s.flux_auto).collect();
+        let mut snr_values: Vec<f32> = stars_to_use.iter()
+            .map(|s| if s.fluxerr_auto > 0.0 { s.flux_auto / s.fluxerr_auto } else { 0.0 })
+            .collect();
+        let mut elongation_values: Vec<f32> = stars_to_use.iter().map(|s| s.elongation).collect();
+        
+        // Sort for median calculation
+        kron_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        flux_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        snr_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        elongation_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        
+        // Calculate medians
+        let median_kron_radius = if !kron_values.is_empty() { kron_values[kron_values.len() / 2] } else { 0.0 };
+        let median_flux = if !flux_values.is_empty() { flux_values[flux_values.len() / 2] } else { 0.0 };
+        let median_snr = if !snr_values.is_empty() { snr_values[snr_values.len() / 2] } else { 0.0 };
+        let median_elongation = if !elongation_values.is_empty() { elongation_values[elongation_values.len() / 2] } else { 0.0 };
+        
+        // Calculate standard deviations for additional metrics
+        let kron_radius_std_dev = calculate_std_dev(&kron_values);
+        let flux_std_dev = calculate_std_dev(&flux_values);
+        let snr_std_dev = calculate_std_dev(&snr_values);
+        
+        // Calculate flagged fraction
+        let flagged_count = stars_to_use.iter().filter(|s| s.flag != 0).count();
+        let flagged_fraction = if !stars_to_use.is_empty() {
+            flagged_count as f32 / stars_to_use.len() as f32
+        } else {
+            0.0
+        };
 
         StarStats {
             count: stars.len(),
@@ -61,6 +94,14 @@ impl StarStats {
             median_eccentricity,
             fwhm_std_dev,
             eccentricity_std_dev,
+            median_kron_radius,
+            median_flux,
+            median_snr,
+            median_elongation,
+            flagged_fraction,
+            kron_radius_std_dev,
+            flux_std_dev,
+            snr_std_dev,
         }
     }
 }
