@@ -214,11 +214,69 @@ pub fn detect_stars_sep(
             // Calculate derived metrics
             let elongation = if a > 0.0 && b > 0.0 { a / b } else { 1.0 };
             
-            // These would require additional SEP function calls, using defaults for now
-            // TODO: Implement sep_kron_radius and sep_sum_ellipse calls
-            let kron_radius = 0.0;
-            let flux_auto = flux;
-            let fluxerr_auto = 0.0;
+            // Calculate Kron radius (radius containing 50% of flux)
+            let mut kron_radius = 0.0;
+            let mut krflag: i16 = 0;
+            
+            // Call sep_kron_radius to get the Kron radius
+            // Note: SEP expects f64 for coordinates and dimensions
+            let kr_status = sep::sep_kron_radius(
+                &sep_img as *const sep::sep_image,
+                x, y,                  // Object position (already f64)
+                a as f64, b as f64,    // Semi-major and semi-minor axes (convert f32 to f64)
+                theta as f64,          // Position angle (convert f32 to f64)
+                6.0,                   // Number of Kron radii for measurement (typically 2.5 or 6.0)
+                0,                     // Flags (0 = default)
+                &mut kron_radius as *mut f32 as *mut f64,  // Output Kron radius
+                &mut krflag            // Output flag
+            );
+            
+            if kr_status != 0 {
+                // If there's an error, use a default value
+                kron_radius = 0.0;
+            }
+            
+            // Calculate flux within elliptical aperture (AUTO flux)
+            let mut flux_auto = flux;
+            let mut fluxerr_auto = 0.0;
+            let mut seflag = 0;
+            
+            if kron_radius > 0.0 {
+                // Use Kron radius for aperture measurement (typically 2.5 * kron_radius)
+                let kr_scale = 2.5;
+                let auto_a = kr_scale * kron_radius * a;
+                let auto_b = kr_scale * kron_radius * b;
+                
+                // Call sep_sum_ellipse to get the flux within the aperture
+                let mut flux_auto_f64 = flux_auto as f64;
+                let mut fluxerr_auto_f64 = 0.0;
+                let mut seflag: i16 = 0;
+                
+                let se_status = sep::sep_sum_ellipse(
+                    &sep_img as *const sep::sep_image,
+                    x, y,                       // Object position (already f64)
+                    auto_a as f64, auto_b as f64, // Scaled semi-major and semi-minor axes
+                    theta as f64,               // Position angle
+                    0.0,                        // No inner radius (full ellipse)
+                    0,                          // Subpixel sampling (0 = default)
+                    0,                          // Error type (0 = default)
+                    0,                          // Aperture correction (0 = none)
+                    &mut flux_auto_f64,         // Output flux
+                    &mut fluxerr_auto_f64,      // Output flux error
+                    &mut 0.0,                   // Output area (not used)
+                    &mut seflag                 // Output flag
+                );
+                
+                // Convert back to f32 for our struct
+                flux_auto = flux_auto_f64 as f32;
+                fluxerr_auto = fluxerr_auto_f64 as f32;
+                
+                if se_status != 0 {
+                    // If there's an error, use the isophotal flux
+                    flux_auto = flux;
+                    fluxerr_auto = 0.0;
+                }
+            }
             
             let mut star = StarMetrics {
                 x,

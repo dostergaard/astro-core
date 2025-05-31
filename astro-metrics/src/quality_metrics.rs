@@ -13,20 +13,36 @@ pub fn calculate_quality_scores(
     
     // FWHM score: Lower FWHM is better, so invert the scale
     // Typical good FWHM is 2-4 pixels, terrible is >8 pixels
-    let fwhm_score = (1.0 - (star_stats.median_fwhm / 10.0).min(1.0)).max(0.0);
+    let fwhm_base_score = (1.0 - (star_stats.median_fwhm / 10.0).min(1.0)).max(0.0);
     
-    // Eccentricity score: Lower eccentricity (rounder stars) is better
-    // 0 = perfect circle, 1 = line
-    let eccentricity_score = (1.0 - star_stats.median_eccentricity).max(0.0);
+    // FWHM consistency: Lower std_dev relative to median is better
+    let fwhm_consistency = if star_stats.median_fwhm > 0.0 {
+        (1.0 - (star_stats.fwhm_std_dev / star_stats.median_fwhm).min(1.0)).max(0.0)
+    } else {
+        0.0
+    };
     
-    // Background score: Higher uniformity is better
-    let background_score = background.uniformity;
+    // Combine base FWHM score with consistency
+    let fwhm_score = fwhm_base_score * 0.7 + fwhm_consistency * 0.3;
+    
+    // Elongation score: Lower elongation (closer to 1.0) is better
+    // Typical good value is <1.5, bad is >3.0
+    let elongation_score = (1.0 - ((star_stats.median_elongation - 1.0) / 2.0).min(1.0)).max(0.0);
+    
+    // Use elongation score instead of eccentricity
+    let eccentricity_score = elongation_score;
+    
+    // Background score: Combine uniformity with noise level
+    // Lower RMS is better, normalize against a typical good value
+    let noise_score = (1.0 - (background.rms / 10.0).min(1.0)).max(0.0);
+    let background_score = background.uniformity * 0.7 + noise_score * 0.3;
     
     // Kron radius score: Lower radius is better (tighter stars)
     let kron_score = (1.0 - (star_stats.median_kron_radius / 10.0).min(1.0)).max(0.0);
     
-    // SNR score: Higher is better
-    let snr_score = (star_stats.median_snr / 100.0).min(1.0);
+    // SNR score: Use a logarithmic scale that better represents human perception
+    // SNR of 10 → 0.5, SNR of 100 → 0.83, SNR of 1000 → 1.0
+    let snr_score = (1.0 - 10.0 / (10.0 + star_stats.median_snr)).max(0.0);
     
     // Flag score: Lower flagged fraction is better
     let flag_score = 1.0 - star_stats.flagged_fraction;
@@ -113,11 +129,28 @@ pub fn create_frame_metrics_with_weights(
         .unwrap_or_else(|| "unknown".to_string());
     
     // Calculate individual scores
-    let fwhm_score = (1.0 - (star_stats.median_fwhm / 10.0).min(1.0)).max(0.0);
-    let eccentricity_score = (1.0 - star_stats.median_eccentricity).max(0.0);
-    let background_score = background.uniformity;
+    // FWHM score with consistency
+    let fwhm_base_score = (1.0 - (star_stats.median_fwhm / 10.0).min(1.0)).max(0.0);
+    let fwhm_consistency = if star_stats.median_fwhm > 0.0 {
+        (1.0 - (star_stats.fwhm_std_dev / star_stats.median_fwhm).min(1.0)).max(0.0)
+    } else {
+        0.0
+    };
+    let fwhm_score = fwhm_base_score * 0.7 + fwhm_consistency * 0.3;
+    
+    // Elongation score
+    let elongation_score = (1.0 - ((star_stats.median_elongation - 1.0) / 2.0).min(1.0)).max(0.0);
+    let eccentricity_score = elongation_score;
+    
+    // Enhanced background score
+    let noise_score = (1.0 - (background.rms / 10.0).min(1.0)).max(0.0);
+    let background_score = background.uniformity * 0.7 + noise_score * 0.3;
+    
+    // Kron radius score
     let kron_score = (1.0 - (star_stats.median_kron_radius / 10.0).min(1.0)).max(0.0);
-    let snr_score = (star_stats.median_snr / 100.0).min(1.0);
+    
+    // Logarithmic SNR score
+    let snr_score = (1.0 - 10.0 / (10.0 + star_stats.median_snr)).max(0.0);
     let flag_score = 1.0 - star_stats.flagged_fraction;
     
     // Calculate overall score with custom weights

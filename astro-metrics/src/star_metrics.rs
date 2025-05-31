@@ -58,8 +58,19 @@ impl StarStats {
         // Calculate medians for additional metrics
         let mut kron_values: Vec<f32> = stars_to_use.iter().map(|s| s.kron_radius).collect();
         let mut flux_values: Vec<f32> = stars_to_use.iter().map(|s| s.flux_auto).collect();
+        // Calculate SNR values - use AUTO flux and error when available
         let mut snr_values: Vec<f32> = stars_to_use.iter()
-            .map(|s| if s.fluxerr_auto > 0.0 { s.flux_auto / s.fluxerr_auto } else { 0.0 })
+            .map(|s| {
+                if s.fluxerr_auto > 0.0 {
+                    // Use AUTO flux and its error for SNR calculation
+                    s.flux_auto / s.fluxerr_auto
+                } else if s.flux > 0.0 {
+                    // Fallback: estimate SNR using sqrt(flux) as error approximation
+                    s.flux / s.flux.sqrt()
+                } else {
+                    0.0
+                }
+            })
             .collect();
         let mut elongation_values: Vec<f32> = stars_to_use.iter().map(|s| s.elongation).collect();
         
