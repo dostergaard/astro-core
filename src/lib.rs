@@ -11,22 +11,26 @@
 //! # Examples
 //!
 //! ```no_run
-//! use astro_core::{io, metadata, metrics};
-//!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Load a FITS file
-//!     let loader = io::fits::FitsLoader::new("/path/to/image.fits")?;
-//!     let image_data = loader.read_image_data()?;
-//!     let metadata = loader.read_metadata()?;
-//!     
-//!     // Analyze star metrics
-//!     let star_metrics = metrics::star_metrics::StarMetrics::new(&image_data)?;
-//!     let stars = star_metrics.detect_stars()?;
-//!     
-//!     println!("Found {} stars", stars.len());
-//!     
-//!     Ok(())
-//! }
+//! use astro_core::io;
+//! use astro_core::metadata;
+//! use astro_core::metrics;
+//! use std::path::Path;
+//! 
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Load metadata from a FITS file
+//! let path = Path::new("/path/to/image.fits");
+//! let metadata = metadata::fits_parser::extract_metadata_from_path(path)?;
+//! 
+//! // Extract star metrics
+//! let (image_data, width, height) = io::fits::load_fits(path)?;
+//! let (star_stats, background) = metrics::sep_detect::detect_stars_with_sep_background(
+//!     &image_data, width, height, None)?;
+//! 
+//! // Calculate quality scores
+//! let scores = metrics::quality_metrics::calculate_quality_scores(&star_stats, &background);
+//! println!("Overall quality score: {}", scores.overall);
+//! # Ok(())
+//! # }
 //! ```
 
 pub use astro_io as io;

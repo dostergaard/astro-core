@@ -4,7 +4,6 @@
 //! and convert it into the AstroMetadata structure.
 
 use std::collections::HashMap;
-use std::fs::File;
 use std::path::Path;
 use anyhow::{Result, Context};
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -342,7 +341,22 @@ fn get_int_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<i3
 }
 
 /// Parse sexagesimal format (HH MM SS or DD MM SS) to decimal degrees
-fn parse_sexagesimal(value: &str) -> Option<f64> {
+/// 
+/// This function converts a string in sexagesimal format (hours/degrees, minutes, seconds)
+/// to decimal degrees. It handles both positive and negative values.
+/// 
+/// # Examples
+/// 
+/// ```
+/// use astro_metadata::fits_parser::parse_sexagesimal;
+/// 
+/// // Parse right ascension: "12 34 56" (12h 34m 56s)
+/// let ra_deg = parse_sexagesimal("12 34 56").map(|ra| ra * 15.0); // Convert hours to degrees
+/// 
+/// // Parse declination: "-45 12 34" (-45° 12' 34")
+/// let dec_deg = parse_sexagesimal("-45 12 34");
+/// ```
+pub fn parse_sexagesimal(value: &str) -> Option<f64> {
     let parts: Vec<&str> = value.split_whitespace().collect();
     if parts.len() >= 3 {
         if let (Ok(h), Ok(m), Ok(s)) = (parts[0].parse::<f64>(), parts[1].parse::<f64>(), parts[2].parse::<f64>()) {
@@ -373,4 +387,25 @@ fn parse_date_time(date_str: &str) -> Option<DateTime<Utc>> {
     
     warn!("Failed to parse date string: {}", date_str);
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_sexagesimal() {
+        // Test RA format (HH MM SS)
+        assert_eq!(parse_sexagesimal("12 30 45"), Some(12.5125));
+        
+        // Test DEC format (DD MM SS)
+        assert_eq!(parse_sexagesimal("-45 30 15"), Some(-45.50416666666667));
+        
+        // Test with zero values
+        assert_eq!(parse_sexagesimal("0 0 0"), Some(0.0));
+        
+        // Test with invalid input
+        assert_eq!(parse_sexagesimal("not a coordinate"), None);
+        assert_eq!(parse_sexagesimal("12 30"), None); // Not enough parts
+    }
 }

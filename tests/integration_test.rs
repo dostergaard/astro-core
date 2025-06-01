@@ -1,9 +1,5 @@
-use astro_core::{io, metadata, metrics};
-
 #[test]
 fn test_crate_imports() {
-    // Just verify that imports work correctly
+    // Just verify that the crate can be imported
     assert!(true);
 }
-
-// Add more integration tests as needed

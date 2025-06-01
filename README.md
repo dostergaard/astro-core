@@ -2,9 +2,13 @@
 
 A collection of Rust crates for astronomical image processing and analysis.
 
+## Notice
+
+Astro Core and its associated crates (astro-io, astro-metadata, and astro-metrics) are being developed to support my astrophotography image processing workflows. These libraries are actively evolving as they're integrated into various utilities I'm building for astronomical image analysis and processing. While they're designed to be stable and reusable, expect ongoing changes and enhancements as development of dependent projects progresses.
+
 ## Overview
 
-Astro Core is a modular Rust library that provides components for working with astronomical images. It was extracted from the Astro Frame Selector project to create reusable components that can be used independently in various astronomical image processing applications.
+Astro Core is a modular Rust library that provides components for working with astronomical images. It was extracted from my Astro Frame Selector project to create reusable components that can be used independently in various astronomical image processing applications.
 
 ## Crates
 
@@ -20,8 +24,11 @@ Handles I/O operations for astronomical image formats:
 - Efficient image data handling
 
 ```rust
-use astro_io::fits::FitsLoader;
-use astro_io::xisf::XisfLoader;
+use astro_io::fits;
+use astro_io::xisf;
+
+// Load a FITS file
+let (pixels, width, height) = fits::load_fits(Path::new("/path/to/image.fits"))?;
 ```
 
 ### astro-metadata
@@ -38,9 +45,16 @@ Provides metadata extraction and handling for astronomical images:
 - Environmental data
 
 ```rust
-use astro_metadata::AstroMetadata;
-use astro_metadata::fits_parser::FitsMetadataParser;
-use astro_metadata::xisf_parser::XisfMetadataParser;
+use astro_metadata::fits_parser;
+use std::path::Path;
+
+// Extract metadata from a FITS file
+let metadata = fits_parser::extract_metadata_from_path(Path::new("/path/to/image.fits"))?;
+
+// Calculate plate scale
+if let Some(plate_scale) = metadata.plate_scale() {
+    println!("Plate scale: {} arcsec/pixel", plate_scale);
+}
 ```
 
 ### astro-metrics
@@ -48,14 +62,22 @@ use astro_metadata::xisf_parser::XisfMetadataParser;
 *Crate not yet published*
 
 Implements statistical metrics for astronomical images:
-- Star detection and measurement
-- Star metrics (count, FWHM, eccentricity)
+- Star detection and measurement using Source Extractor (SEP)
+- Star metrics (count, FWHM, eccentricity, elongation)
 - Background analysis (median, RMS, uniformity)
-- Source Extractor integration via sep-sys
+- Quality scoring for image comparison
 
 ```rust
-use astro_metrics::star_metrics::StarMetrics;
-use astro_metrics::background_metrics::BackgroundMetrics;
+use astro_metrics::sep_detect;
+use astro_metrics::quality_metrics;
+
+// Detect stars and analyze background
+let (star_stats, background) = sep_detect::detect_stars_with_sep_background(
+    &image_data, width, height, None)?;
+
+// Calculate quality scores
+let scores = quality_metrics::calculate_quality_scores(&star_stats, &background);
+println!("Overall quality score: {}", scores.overall);
 ```
 
 ## Features
@@ -63,6 +85,7 @@ use astro_metrics::background_metrics::BackgroundMetrics;
 - Support for FITS and XISF file formats
 - Comprehensive metadata extraction
 - Statistical analysis of astronomical images
+- Quality metrics for image comparison and selection
 - Modular design for flexible integration
 - Pure Rust implementation with minimal dependencies
 
@@ -72,16 +95,16 @@ Add the desired crates to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-astro-io = "0.1.0"
-astro-metadata = "0.1.0"
-astro-metrics = "0.1.0"
+astro-io = "0.2.0"
+astro-metadata = "0.2.0"
+astro-metrics = "0.2.0"
 ```
 
 Or selectively include only what you need:
 
 ```toml
 [dependencies]
-astro-metadata = "0.1.0"  # If you only need metadata handling
+astro-metadata = "0.2.0"  # If you only need metadata handling
 ```
 
 ## Usage Examples
@@ -89,38 +112,51 @@ astro-metadata = "0.1.0"  # If you only need metadata handling
 ### Loading a FITS file and extracting metadata
 
 ```rust
-use astro_io::fits::FitsLoader;
-use astro_metadata::AstroMetadata;
+use astro_core::io;
+use astro_core::metadata;
+use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let loader = FitsLoader::new("/path/to/image.fits")?;
-    let image_data = loader.read_image_data()?;
-    let metadata = loader.read_metadata()?;
+    let path = Path::new("/path/to/image.fits");
     
-    println!("Image dimensions: {}x{}", image_data.width(), image_data.height());
-    println!("Object: {}", metadata.object_name.unwrap_or_default());
-    println!("Exposure time: {} seconds", metadata.exposure_time.unwrap_or_default());
+    // Load image data
+    let (image_data, width, height) = io::fits::load_fits(path)?;
+    
+    // Extract metadata
+    let metadata = metadata::fits_parser::extract_metadata_from_path(path)?;
+    
+    println!("Image dimensions: {}x{}", width, height);
+    println!("Object: {}", metadata.exposure.object_name.unwrap_or_default());
+    println!("Exposure time: {} seconds", metadata.exposure.exposure_time.unwrap_or_default());
     
     Ok(())
 }
 ```
 
-### Analyzing star metrics in an image
+### Analyzing star metrics and image quality
 
 ```rust
-use astro_io::fits::FitsLoader;
-use astro_metrics::star_metrics::StarMetrics;
+use astro_core::io;
+use astro_core::metrics;
+use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let loader = FitsLoader::new("/path/to/image.fits")?;
-    let image_data = loader.read_image_data()?;
+    let path = Path::new("/path/to/image.fits");
     
-    let metrics = StarMetrics::new(&image_data)?;
-    let stars = metrics.detect_stars()?;
+    // Load image data
+    let (image_data, width, height) = io::fits::load_fits(path)?;
     
-    println!("Found {} stars", stars.len());
-    println!("Average FWHM: {:.2} pixels", metrics.average_fwhm(&stars)?);
-    println!("Average eccentricity: {:.3}", metrics.average_eccentricity(&stars)?);
+    // Detect stars and analyze background
+    let (star_stats, background) = metrics::sep_detect::detect_stars_with_sep_background(
+        &image_data, width, height, None)?;
+    
+    // Calculate quality scores
+    let scores = metrics::quality_metrics::calculate_quality_scores(&star_stats, &background);
+    
+    println!("Found {} stars", star_stats.count);
+    println!("Median FWHM: {:.2} pixels", star_stats.median_fwhm);
+    println!("Background uniformity: {:.3}", background.uniformity);
+    println!("Overall quality score: {:.3}", scores.overall);
     
     Ok(())
 }
@@ -139,8 +175,15 @@ cargo build --release
 ### Running Tests
 
 ```bash
-cargo test --all
+cargo test --workspace
 ```
+
+## Documentation
+
+Additional documentation is available in the docs directory:
+- [Quality Metrics Documentation](docs/QualityMetrics.md) - Details on image quality scoring
+- [NINA Token Support](docs/Supported_NINA_Tokens.md) - Information on supported NINA tokens
+- [File Organization Tokens](docs/FileOrgTokens.md) - Tokens for file organization
 
 ## Contributing
 

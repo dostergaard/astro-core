@@ -1,7 +1,6 @@
 //! Quality metrics calculation for astronomical images
 
-use std::path::{Path, PathBuf};
-use anyhow::Result;
+use std::path::Path;
 use crate::types::{StarStats, BackgroundMetrics, QualityScores, QualityWeights, FrameQualityMetrics};
 
 /// Calculate quality scores for a frame
@@ -179,5 +178,80 @@ pub fn create_frame_metrics_with_weights(
         star_stats,
         background,
         scores,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    #[test]
+    fn test_calculate_quality_scores() {
+        // Create test data
+        let star_stats = StarStats {
+            count: 100,
+            median_fwhm: 3.0,
+            median_eccentricity: 0.2,
+            fwhm_std_dev: 0.5,
+            eccentricity_std_dev: 0.05,
+            median_kron_radius: 5.0,
+            median_flux: 1000.0,
+            median_snr: 50.0,
+            median_elongation: 1.2,
+            flagged_fraction: 0.05,
+            kron_radius_std_dev: 1.0,
+            flux_std_dev: 200.0,
+            snr_std_dev: 10.0,
+        };
+        
+        let background = BackgroundMetrics {
+            median: 100.0,
+            rms: 5.0,
+            min: 90.0,
+            max: 110.0,
+            uniformity: 0.9,
+        };
+        
+        // Calculate scores
+        let scores = calculate_quality_scores(&star_stats, &background);
+        
+        // Verify scores are in the expected range (0-1)
+        assert!(scores.fwhm >= 0.0 && scores.fwhm <= 1.0);
+        assert!(scores.eccentricity >= 0.0 && scores.eccentricity <= 1.0);
+        assert!(scores.background >= 0.0 && scores.background <= 1.0);
+        assert!(scores.kron_radius >= 0.0 && scores.kron_radius <= 1.0);
+        assert!(scores.snr >= 0.0 && scores.snr <= 1.0);
+        assert!(scores.flag >= 0.0 && scores.flag <= 1.0);
+        assert!(scores.overall >= 0.0 && scores.overall <= 1.0);
+        
+        // Verify specific calculations
+        assert_eq!(scores.flag, 0.95); // 1.0 - 0.05
+    }
+    
+    #[test]
+    fn test_calculate_overall_score() {
+        // Create test weights
+        let weights = QualityWeights {
+            fwhm: 0.3,
+            eccentricity: 0.2,
+            background: 0.2,
+            kron_radius: 0.15,
+            snr: 0.1,
+            flag: 0.05,
+        };
+        
+        // Calculate overall score with all metrics at 0.5
+        let overall = calculate_overall_score(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, &weights);
+        
+        // Should be 0.5 since all inputs are 0.5
+        assert_eq!(overall, 0.5);
+        
+        // Test with different values
+        let overall = calculate_overall_score(1.0, 0.0, 0.5, 0.5, 0.5, 0.5, &weights);
+        
+        // Manual calculation: (1.0*0.3 + 0.0*0.2 + 0.5*0.2 + 0.5*0.15 + 0.5*0.1 + 0.5*0.05) / 1.0
+        let expected = (1.0*0.3 + 0.0*0.2 + 0.5*0.2 + 0.5*0.15 + 0.5*0.1 + 0.5*0.05) / 1.0;
+        assert_eq!(overall, expected);
     }
 }

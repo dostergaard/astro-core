@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Read, Seek};
+use std::io::{Read, Seek};
 use std::path::Path;
 use anyhow::{Result, Context};
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -71,9 +71,8 @@ pub fn extract_metadata<R: Read + Seek>(reader: &mut R) -> Result<AstroMetadata>
 
 /// Extract metadata from an XISF file path
 pub fn extract_metadata_from_path(path: &Path) -> Result<AstroMetadata> {
-    let file = File::open(path).context("Failed to open XISF file")?;
-    let mut reader = BufReader::new(file);
-    extract_metadata(&mut reader)
+    let mut file = File::open(path).context("Failed to open XISF file")?;
+    extract_metadata(&mut file)
 }
 
 /// Extract XML content from the XISF header
@@ -178,7 +177,7 @@ fn extract_xml_attributes(xml: &str, metadata: &mut AstroMetadata) {
 }
 
 /// Extract XISF-specific metadata from XML content
-fn extract_xisf_metadata(xml: &str, metadata: &mut AstroMetadata, xisf_metadata: &mut XisfMetadata) {
+fn extract_xisf_metadata(xml: &str, _metadata: &mut AstroMetadata, xisf_metadata: &mut XisfMetadata) {
     // Extract XISF version
     if let Some(version) = extract_attribute(xml, "version") {
         xisf_metadata.version = version;
@@ -212,7 +211,7 @@ fn extract_color_management(xml: &str, metadata: &mut AstroMetadata) {
     }
     
     // Extract ICC profile if present
-    if let Some(icc_profile) = extract_property_value(xml, "ICCProfile") {
+    if let Some(_icc_profile) = extract_property_value(xml, "ICCProfile") {
         // In a real implementation, we would decode the base64 data here
         // For now, we'll just note that it exists
         color_management.icc_profile = Some(Vec::new());

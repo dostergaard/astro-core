@@ -1,7 +1,5 @@
 //! Star measurement metrics and calculations
 
-use std::ffi::c_int;
-use anyhow::{Result, anyhow};
 use crate::types::{StarMetrics, StarStats};
 
 impl StarMetrics {
@@ -132,4 +130,120 @@ fn calculate_std_dev(values: &[f32]) -> f32 {
         .sum::<f32>() / values.len() as f32;
     
     variance.sqrt()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calc_eccentricity() {
+        // Create a circular star (a = b)
+        let mut star = StarMetrics {
+            x: 100.0,
+            y: 100.0,
+            flux: 1000.0,
+            peak: 100.0,
+            a: 5.0,
+            b: 5.0,
+            theta: 0.0,
+            eccentricity: 0.0,
+            fwhm: 0.0,
+            kron_radius: 10.0,
+            flux_auto: 1200.0,
+            fluxerr_auto: 20.0,
+            npix: 50,
+            elongation: 1.0,
+            flag: 0,
+        };
+        
+        star.calc_eccentricity();
+        assert_eq!(star.eccentricity, 0.0);
+        
+        // Create an elliptical star (a > b)
+        let mut star = StarMetrics {
+            x: 100.0,
+            y: 100.0,
+            flux: 1000.0,
+            peak: 100.0,
+            a: 10.0,
+            b: 5.0,
+            theta: 0.0,
+            eccentricity: 0.0,
+            fwhm: 0.0,
+            kron_radius: 10.0,
+            flux_auto: 1200.0,
+            fluxerr_auto: 20.0,
+            npix: 50,
+            elongation: 2.0,
+            flag: 0,
+        };
+        
+        star.calc_eccentricity();
+        assert!(star.eccentricity > 0.0 && star.eccentricity < 1.0);
+        
+        // The eccentricity should be sqrt(1 - (b/a)²) = sqrt(1 - 0.25) = sqrt(0.75) ≈ 0.866
+        assert!((star.eccentricity - 0.866).abs() < 0.001);
+    }
+    
+    #[test]
+    fn test_calc_fwhm() {
+        let mut star = StarMetrics {
+            x: 100.0,
+            y: 100.0,
+            flux: 1000.0,
+            peak: 100.0,
+            a: 6.0,
+            b: 4.0,
+            theta: 0.0,
+            eccentricity: 0.0,
+            fwhm: 0.0,
+            kron_radius: 10.0,
+            flux_auto: 1200.0,
+            fluxerr_auto: 20.0,
+            npix: 50,
+            elongation: 1.5,
+            flag: 0,
+        };
+        
+        star.calc_fwhm();
+        // FWHM should be the average of a and b
+        assert_eq!(star.fwhm, 5.0);
+    }
+    
+    #[test]
+    fn test_from_stars() {
+        // Create a collection of test stars
+        let stars = vec![
+            StarMetrics {
+                x: 100.0, y: 100.0, flux: 1000.0, peak: 100.0,
+                a: 6.0, b: 4.0, theta: 0.0, eccentricity: 0.8, fwhm: 5.0,
+                kron_radius: 10.0, flux_auto: 1200.0, fluxerr_auto: 20.0,
+                npix: 50, elongation: 1.5, flag: 0,
+            },
+            StarMetrics {
+                x: 200.0, y: 200.0, flux: 2000.0, peak: 200.0,
+                a: 8.0, b: 6.0, theta: 0.0, eccentricity: 0.7, fwhm: 7.0,
+                kron_radius: 12.0, flux_auto: 2400.0, fluxerr_auto: 30.0,
+                npix: 70, elongation: 1.33, flag: 1,
+            },
+            StarMetrics {
+                x: 300.0, y: 300.0, flux: 3000.0, peak: 300.0,
+                a: 4.0, b: 3.0, theta: 0.0, eccentricity: 0.6, fwhm: 3.5,
+                kron_radius: 8.0, flux_auto: 3600.0, fluxerr_auto: 40.0,
+                npix: 30, elongation: 1.33, flag: 0,
+            },
+        ];
+        
+        // Calculate stats
+        let stats = StarStats::from_stars(&stars, None);
+        
+        // Check basic stats
+        assert_eq!(stats.count, 3);
+        assert_eq!(stats.median_fwhm, 5.0);
+        assert_eq!(stats.median_eccentricity, 0.7);
+        
+        // Check flagged fraction (1 out of 3 stars is flagged)
+        assert_eq!(stats.flagged_fraction, 1.0/3.0);
+    }
 }

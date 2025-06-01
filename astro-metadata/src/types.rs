@@ -324,7 +324,8 @@ impl AstroMetadata {
             }
             
             // Get the date at noon (12:00) on the same day in the adjusted time
-            let noon = local_time.date().and_hms_opt(12, 0, 0).unwrap();
+            let naive_noon = local_time.date_naive().and_hms_opt(12, 0, 0).unwrap();
+            let noon = DateTime::from_naive_utc_and_offset(naive_noon, Utc);
             
             // If the adjusted observation time is before noon, use the previous day's noon
             self.exposure.session_date = if local_time < noon {
@@ -333,5 +334,127 @@ impl AstroMetadata {
                 Some(noon)
             };
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+    
+    #[test]
+    fn test_plate_scale_calculation() {
+        let mut metadata = AstroMetadata::default();
+        
+        // Test with no focal length or pixel size
+        assert!(!metadata.can_calculate_plate_scale());
+        assert_eq!(metadata.plate_scale(), None);
+        
+        // Test with only focal length
+        metadata.equipment.focal_length = Some(1000.0);
+        assert!(!metadata.can_calculate_plate_scale());
+        assert_eq!(metadata.plate_scale(), None);
+        
+        // Test with both focal length and pixel size
+        metadata.detector.pixel_size = Some(5.0);
+        assert!(metadata.can_calculate_plate_scale());
+        
+        // Calculate expected plate scale: (5.0 / 1000.0) * 206.265 = 1.031325
+        let plate_scale = metadata.plate_scale().unwrap();
+        assert!((plate_scale - 1.031325).abs() < 0.0001);
+    }
+    
+    #[test]
+    fn test_field_of_view_calculation() {
+        let mut metadata = AstroMetadata::default();
+        
+        // Set up metadata with focal length and pixel size
+        metadata.equipment.focal_length = Some(1000.0);
+        metadata.detector.pixel_size = Some(5.0);
+        metadata.detector.width = 4096;
+        metadata.detector.height = 2160;
+        
+        // Calculate field of view
+        let fov = metadata.field_of_view().unwrap();
+        
+        // Expected FOV:
+        // plate_scale = (5.0 / 1000.0) * 206.265 = 1.031325 arcsec/pixel
+        // width_arcmin = (4096 * 1.031325) / 60 = 70.48 arcmin
+        // height_arcmin = (2160 * 1.031325) / 60 = 37.14 arcmin
+        assert!((fov.0 - 70.48).abs() < 0.1);
+        assert!((fov.1 - 37.14).abs() < 0.1);
+    }
+    
+    #[test]
+    fn test_timezone_from_longitude() {
+        let mut metadata = AstroMetadata::default();
+        
+        // Test with no mount information
+        assert_eq!(metadata.approximate_timezone_from_longitude(), None);
+        
+        // Create mount with longitude
+        let mut mount = Mount::default();
+        
+        // Test with longitude 0 (Greenwich)
+        mount.longitude = Some(0.0);
+        metadata.mount = Some(mount.clone());
+        assert_eq!(metadata.approximate_timezone_from_longitude(), Some(0));
+        
+        // Test with longitude 15 (UTC+1)
+        mount.longitude = Some(15.0);
+        metadata.mount = Some(mount.clone());
+        assert_eq!(metadata.approximate_timezone_from_longitude(), Some(1));
+        
+        // Test with longitude -75 (UTC-5, Eastern US)
+        mount.longitude = Some(-75.0);
+        metadata.mount = Some(mount.clone());
+        assert_eq!(metadata.approximate_timezone_from_longitude(), Some(-5));
+        
+        // Test with longitude 127.5 (UTC+9, Korea/Japan)
+        mount.longitude = Some(127.5);
+        metadata.mount = Some(mount);
+        assert_eq!(metadata.approximate_timezone_from_longitude(), Some(9));
+    }
+    
+    #[test]
+    fn test_calculate_session_date() {
+        let mut metadata = AstroMetadata::default();
+        
+        // Test with no observation date
+        metadata.calculate_session_date();
+        assert_eq!(metadata.exposure.session_date, None);
+        
+        // Test with observation date at 2:00 AM UTC
+        let obs_date = Utc.with_ymd_and_hms(2023, 5, 15, 2, 0, 0).unwrap();
+        metadata.exposure.date_obs = Some(obs_date);
+        
+        // Without longitude, should use UTC
+        metadata.calculate_session_date();
+        
+        // Since 2:00 AM is before noon, session date should be previous day's noon
+        let expected_session = Utc.with_ymd_and_hms(2023, 5, 14, 12, 0, 0).unwrap();
+        assert_eq!(metadata.exposure.session_date, Some(expected_session));
+        
+        // Test with observation date at 14:00 (2:00 PM) UTC
+        let obs_date = Utc.with_ymd_and_hms(2023, 5, 15, 14, 0, 0).unwrap();
+        metadata.exposure.date_obs = Some(obs_date);
+        
+        // Without longitude, should use UTC
+        metadata.calculate_session_date();
+        
+        // Since 2:00 PM is after noon, session date should be same day's noon
+        let expected_session = Utc.with_ymd_and_hms(2023, 5, 15, 12, 0, 0).unwrap();
+        assert_eq!(metadata.exposure.session_date, Some(expected_session));
+        
+        // Test with longitude -75 (UTC-5, Eastern US)
+        let mut mount = Mount::default();
+        mount.longitude = Some(-75.0);
+        metadata.mount = Some(mount);
+        
+        // With obs_date at 14:00 UTC, local time is 9:00 AM
+        // Since 9:00 AM is before noon, session date should be previous day's noon
+        metadata.calculate_session_date();
+        let expected_session = Utc.with_ymd_and_hms(2023, 5, 14, 12, 0, 0).unwrap();
+        assert_eq!(metadata.exposure.session_date, Some(expected_session));
     }
 }

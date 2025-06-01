@@ -7,9 +7,8 @@ use anyhow::{Result, bail, Context};
 use std::path::Path;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
-use std::cmp::min;
+
 use byteorder::{LittleEndian, ReadBytesExt};
-use flate2::read::ZlibDecoder;
 
 /// Read an XISF file and return its pixel data, width, and height
 pub fn load_xisf(path: &Path) -> Result<(Vec<f32>, usize, usize)> {
@@ -37,11 +36,9 @@ pub fn load_xisf(path: &Path) -> Result<(Vec<f32>, usize, usize)> {
     println!("Header size: {} bytes", header_size);
     
     // Extract image dimensions and data location from the XML content
-    let mut xml_content = String::new();
     
     // Look for the geometry attribute in the XML
-    if let Ok(content) = extract_xml_content(&mut reader, header_size) {
-        xml_content = content;
+    if let Ok(xml_content) = extract_xml_content(&mut reader, header_size) {
         
         if let Some(geometry) = extract_attribute(&xml_content, "geometry") {
             println!("Found geometry attribute: {}", geometry);
@@ -178,4 +175,61 @@ fn read_pixel_data(data: &[u8], width: usize, height: usize) -> Result<Vec<f32>>
     }
     
     Ok(pixels)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_extract_attribute() {
+        let xml = r#"<Image id="main" geometry="1024:768:1" sampleFormat="UInt16" colorSpace="Gray">"#;
+        
+        // Test existing attributes
+        assert_eq!(extract_attribute(xml, "geometry"), Some("1024:768:1".to_string()));
+        assert_eq!(extract_attribute(xml, "sampleFormat"), Some("UInt16".to_string()));
+        assert_eq!(extract_attribute(xml, "colorSpace"), Some("Gray".to_string()));
+        
+        // Test non-existent attribute
+        assert_eq!(extract_attribute(xml, "nonexistent"), None);
+    }
+
+    #[test]
+    fn test_read_pixel_data() {
+        // Create test data for a 2x2 image with 16-bit pixels
+        let mut data = Vec::new();
+        let pixels = [0u16, 32768u16, 65535u16, 16384u16];
+        
+        for pixel in &pixels {
+            data.extend_from_slice(&pixel.to_le_bytes());
+        }
+        
+        // Read the pixel data
+        let result = read_pixel_data(&data, 2, 2).unwrap();
+        
+        // Check the results
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0], 0.0);
+        assert!((result[1] - 0.5).abs() < 0.001);
+        assert_eq!(result[2], 1.0);
+        assert!((result[3] - 0.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_extract_xml_content() {
+        // Create a test header with XML content
+        let mut header = vec![0u8; 100];
+        let xml = b"<?xml version=\"1.0\"?><xisf><Image></Image></xisf>";
+        header[10..10+xml.len()].copy_from_slice(xml);
+        
+        // Extract the XML content
+        let mut reader = Cursor::new(header);
+        let result = extract_xml_content(&mut reader, 100).unwrap();
+        
+        // Check the result
+        assert!(result.contains("<?xml"));
+        assert!(result.contains("<xisf>"));
+        assert!(result.contains("<Image>"));
+    }
 }
