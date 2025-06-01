@@ -21,9 +21,39 @@ impl StarMetrics {
 impl StarStats {
     /// Calculate aggregate statistics from a collection of star metrics
     pub fn from_stars(stars: &[StarMetrics], max_stars: Option<usize>) -> Self {
+        // Handle empty star list
+        if stars.is_empty() {
+            return StarStats {
+                count: 0,
+                median_fwhm: 0.0,
+                median_eccentricity: 0.0,
+                fwhm_std_dev: 0.0,
+                eccentricity_std_dev: 0.0,
+                median_kron_radius: 0.0,
+                median_flux: 0.0,
+                median_snr: 0.0,
+                median_elongation: 0.0,
+                flagged_fraction: 0.0,
+                kron_radius_std_dev: 0.0,
+                flux_std_dev: 0.0,
+                snr_std_dev: 0.0,
+            };
+        }
+        
         // Sort stars by flux and take the top N if max_stars is specified
         let mut sorted_stars = stars.to_vec();
-        sorted_stars.sort_by(|a, b| b.flux.partial_cmp(&a.flux).unwrap());
+        // Sort by flux, handling NaN values
+        sorted_stars.sort_by(|a, b| {
+            if a.flux.is_nan() && b.flux.is_nan() {
+                std::cmp::Ordering::Equal
+            } else if a.flux.is_nan() {
+                std::cmp::Ordering::Less
+            } else if b.flux.is_nan() {
+                std::cmp::Ordering::Greater
+            } else {
+                b.flux.partial_cmp(&a.flux).unwrap_or(std::cmp::Ordering::Equal)
+            }
+        });
         let stars_to_use = if let Some(max) = max_stars {
             &sorted_stars[..max.min(sorted_stars.len())]
         } else {
@@ -34,8 +64,30 @@ impl StarStats {
         let mut fwhm_values: Vec<f32> = stars_to_use.iter().map(|s| s.fwhm).collect();
         let mut ecc_values: Vec<f32> = stars_to_use.iter().map(|s| s.eccentricity).collect();
         
-        fwhm_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        ecc_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // Sort values, handling NaN values
+        fwhm_values.sort_by(|a, b| {
+            if a.is_nan() && b.is_nan() {
+                std::cmp::Ordering::Equal
+            } else if a.is_nan() {
+                std::cmp::Ordering::Greater
+            } else if b.is_nan() {
+                std::cmp::Ordering::Less
+            } else {
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+            }
+        });
+        
+        ecc_values.sort_by(|a, b| {
+            if a.is_nan() && b.is_nan() {
+                std::cmp::Ordering::Equal
+            } else if a.is_nan() {
+                std::cmp::Ordering::Greater
+            } else if b.is_nan() {
+                std::cmp::Ordering::Less
+            } else {
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+            }
+        });
         
         let median_fwhm = if !fwhm_values.is_empty() {
             fwhm_values[fwhm_values.len() / 2]
@@ -72,11 +124,23 @@ impl StarStats {
             .collect();
         let mut elongation_values: Vec<f32> = stars_to_use.iter().map(|s| s.elongation).collect();
         
-        // Sort for median calculation
-        kron_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        flux_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        snr_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        elongation_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // Sort for median calculation, handling NaN values
+        let nan_safe_sort = |a: &f32, b: &f32| -> std::cmp::Ordering {
+            if a.is_nan() && b.is_nan() {
+                std::cmp::Ordering::Equal
+            } else if a.is_nan() {
+                std::cmp::Ordering::Greater
+            } else if b.is_nan() {
+                std::cmp::Ordering::Less
+            } else {
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+            }
+        };
+        
+        kron_values.sort_by(nan_safe_sort);
+        flux_values.sort_by(nan_safe_sort);
+        snr_values.sort_by(nan_safe_sort);
+        elongation_values.sort_by(nan_safe_sort);
         
         // Calculate medians
         let median_kron_radius = if !kron_values.is_empty() { kron_values[kron_values.len() / 2] } else { 0.0 };

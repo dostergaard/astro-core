@@ -307,6 +307,25 @@ pub fn detect_stars_sep(
             sep::sep_catalog_free(catalog);
         }
 
+        // Check if we found any stars
+        if stars.is_empty() {
+            return Ok(StarStats {
+                count: 0,
+                median_fwhm: 0.0,
+                median_eccentricity: 0.0,
+                fwhm_std_dev: 0.0,
+                eccentricity_std_dev: 0.0,
+                median_kron_radius: 0.0,
+                median_flux: 0.0,
+                median_snr: 0.0,
+                median_elongation: 0.0,
+                flagged_fraction: 0.0,
+                kron_radius_std_dev: 0.0,
+                flux_std_dev: 0.0,
+                snr_std_dev: 0.0,
+            });
+        }
+
         // Calculate aggregate statistics
         let stats = StarStats::from_stars(&stars, max_stars);
         Ok(stats)

@@ -23,6 +23,7 @@ repository.workspace = true
 description = "Core libraries for astronomical image file analysis and manipulation."
 
 [dependencies]
+anyhow = "1.0.98"
 astro-io = { path = "./astro-io", version = "0.2.0" }
 astro-metadata = { path = "./astro-metadata", version = "0.2.0" }
 astro-metrics = { path = "./astro-metrics", version = "0.2.0" }
