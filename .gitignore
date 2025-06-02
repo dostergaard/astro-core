@@ -3,3 +3,4 @@
 Cargo.lock
 .DS_Store
 tests/data/RGB.xisf
+tests/data/*.fits
