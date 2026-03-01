@@ -1,10 +1,10 @@
 //! Star detection using the SEP (Source Extractor as a Library) C library
 
-use std::ffi::{c_int, CStr};
-use anyhow::{Result, anyhow};
+use crate::types::{BackgroundMetrics, StarMetrics, StarStats};
+use anyhow::{anyhow, Result};
 use sep_sys as sep;
-use crate::types::{StarMetrics, StarStats, BackgroundMetrics};
- 
+use std::ffi::{c_int, CStr};
+
 /// Detect stars using SEP's built-in background estimation and object detection
 pub fn detect_stars_with_sep_background(
     data: &[f32],
@@ -36,11 +36,11 @@ pub fn detect_stars_with_sep_background(
         };
 
         // Set background estimation parameters
-        let bw = 64;  // box width
-        let bh = 64;  // box height
-        let fw = 3;   // filter width
-        let fh = 3;   // filter height
-        let fthresh = 0.0;  // filter threshold
+        let bw = 64; // box width
+        let bh = 64; // box height
+        let fw = 3; // filter width
+        let fh = 3; // filter height
+        let fthresh = 0.0; // filter threshold
 
         // Create a mutable pointer for the background struct
         let mut bkg: *mut sep::sep_bkg = std::ptr::null_mut();
@@ -66,22 +66,22 @@ pub fn detect_stars_with_sep_background(
         // Get global background and RMS
         let background = sep::sep_bkg_global(bkg);
         let rms = sep::sep_bkg_globalrms(bkg);
-        
+
         // Get min and max background values
         let mut min_bg = f32::MAX;
         let mut max_bg = f32::MIN;
-        
+
         // Calculate background uniformity
         let nx = (*bkg).nx;
         let ny = (*bkg).ny;
         let back = (*bkg).back;
-        
+
         for i in 0..(nx * ny) {
             let val = *back.offset(i as isize);
             min_bg = min_bg.min(val);
             max_bg = max_bg.max(val);
         }
-        
+
         // Calculate uniformity as 1 - (max-min)/max
         // Higher values (closer to 1) mean more uniform background
         let uniformity = if max_bg > 0.0 {
@@ -89,22 +89,17 @@ pub fn detect_stars_with_sep_background(
         } else {
             1.0
         };
-        
+
         // Create background metrics with all values
-        let bg_metrics = BackgroundMetrics::with_all_metrics(
-            background, 
-            rms,
-            min_bg,
-            max_bg,
-            uniformity
-        );
+        let bg_metrics =
+            BackgroundMetrics::with_all_metrics(background, rms, min_bg, max_bg, uniformity);
 
         // Free the background memory
         sep::sep_bkg_free(bkg);
 
         // Detect stars using the estimated background and RMS
         let star_stats = detect_stars_sep(data, width, height, background, rms, max_stars)?;
-        
+
         Ok((star_stats, bg_metrics))
     }
 }
@@ -157,31 +152,42 @@ pub fn detect_stars_sep(
             w: width as i64,
             h: height as i64,
             noiseval: std_dev as f64,
-            noise_type: sep::SEP_NOISE_STDDEV as i16,
+            noise_type: sep::SEP_NOISE_STDDEV,
             gain: 1.0,
             maskthresh: 0.0,
         };
 
         // Set threshold to 3 sigma above background
         let thresh = background + 3.0 * std_dev;
-        
+
+        // Increase SEP's internal extraction pixel stack for large/crowded images.
+        // Default is 300_000, which can underflow for modern high-resolution frames.
+        let required_pixstack = width
+            .saturating_mul(height)
+            .clamp(300_000, 20_000_000);
+        let current_pixstack = sep::sep_get_extract_pixstack();
+        if required_pixstack > current_pixstack {
+            sep::sep_set_extract_pixstack(required_pixstack);
+        }
+        sep::sep_set_sub_object_limit(100_000);
+
         // Create pointers for the catalog
         let mut catalog: *mut sep::sep_catalog = std::ptr::null_mut();
-        
+
         // Call SEP to extract objects
         let status = sep::sep_extract(
             &sep_img as *const sep::sep_image,
             thresh,
             sep::SEP_THRESH_ABS as c_int,
-            5,                            // Minimum area in pixels
-            std::ptr::null(),             // No convolution filter
-            0,                            // No convolution width
-            0,                            // No convolution height
+            5,                // Minimum area in pixels
+            std::ptr::null(), // No convolution filter
+            0,                // No convolution width
+            0,                // No convolution height
             sep::SEP_FILTER_CONV as c_int,
-            32,                           // Deblend thresholds
-            0.005,                        // Deblend contrast
-            1,                            // Clean flag
-            1.0,                          // Clean parameter
+            32,    // Deblend thresholds
+            0.005, // Deblend contrast
+            1,     // Clean flag
+            1.0,   // Clean parameter
             &mut catalog,
         );
 
@@ -210,74 +216,78 @@ pub fn detect_stars_sep(
             // Extract additional metrics from SEP catalog
             let npix = (*catalog).npix.add(i) as usize;
             let flag = *(*catalog).flag.add(i) as u8;
-            
+
             // Calculate derived metrics
             let elongation = if a > 0.0 && b > 0.0 { a / b } else { 1.0 };
-            
+
             // Calculate Kron radius (radius containing 50% of flux)
             let mut kron_radius = 0.0;
             let mut krflag: i16 = 0;
-            
+
             // Call sep_kron_radius to get the Kron radius
             // Note: SEP expects f64 for coordinates and dimensions
             let kr_status = sep::sep_kron_radius(
                 &sep_img as *const sep::sep_image,
-                x, y,                  // Object position (already f64)
-                a as f64, b as f64,    // Semi-major and semi-minor axes (convert f32 to f64)
-                theta as f64,          // Position angle (convert f32 to f64)
-                6.0,                   // Number of Kron radii for measurement (typically 2.5 or 6.0)
-                0,                     // Flags (0 = default)
-                &mut kron_radius as *mut f32 as *mut f64,  // Output Kron radius
-                &mut krflag            // Output flag
+                x,
+                y, // Object position (already f64)
+                a as f64,
+                b as f64,     // Semi-major and semi-minor axes (convert f32 to f64)
+                theta as f64, // Position angle (convert f32 to f64)
+                6.0,          // Number of Kron radii for measurement (typically 2.5 or 6.0)
+                0,            // Flags (0 = default)
+                &mut kron_radius as *mut f32 as *mut f64, // Output Kron radius
+                &mut krflag,  // Output flag
             );
-            
+
             if kr_status != 0 {
                 // If there's an error, use a default value
                 kron_radius = 0.0;
             }
-            
+
             // Calculate flux within elliptical aperture (AUTO flux)
             let mut flux_auto = flux;
             let mut fluxerr_auto = 0.0;
             let _seflag = 0;
-            
+
             if kron_radius > 0.0 {
                 // Use Kron radius for aperture measurement (typically 2.5 * kron_radius)
                 let kr_scale = 2.5;
                 let auto_a = kr_scale * kron_radius * a;
                 let auto_b = kr_scale * kron_radius * b;
-                
+
                 // Call sep_sum_ellipse to get the flux within the aperture
                 let mut flux_auto_f64 = flux_auto as f64;
                 let mut fluxerr_auto_f64 = 0.0;
                 let mut seflag: i16 = 0;
-                
+
                 let se_status = sep::sep_sum_ellipse(
                     &sep_img as *const sep::sep_image,
-                    x, y,                       // Object position (already f64)
-                    auto_a as f64, auto_b as f64, // Scaled semi-major and semi-minor axes
-                    theta as f64,               // Position angle
-                    0.0,                        // No inner radius (full ellipse)
-                    0,                          // Subpixel sampling (0 = default)
-                    0,                          // Error type (0 = default)
-                    0,                          // Aperture correction (0 = none)
-                    &mut flux_auto_f64,         // Output flux
-                    &mut fluxerr_auto_f64,      // Output flux error
-                    &mut 0.0,                   // Output area (not used)
-                    &mut seflag                 // Output flag
+                    x,
+                    y, // Object position (already f64)
+                    auto_a as f64,
+                    auto_b as f64,         // Scaled semi-major and semi-minor axes
+                    theta as f64,          // Position angle
+                    0.0,                   // No inner radius (full ellipse)
+                    0,                     // Subpixel sampling (0 = default)
+                    0,                     // Error type (0 = default)
+                    0,                     // Aperture correction (0 = none)
+                    &mut flux_auto_f64,    // Output flux
+                    &mut fluxerr_auto_f64, // Output flux error
+                    &mut 0.0,              // Output area (not used)
+                    &mut seflag,           // Output flag
                 );
-                
+
                 // Convert back to f32 for our struct
                 flux_auto = flux_auto_f64 as f32;
                 fluxerr_auto = fluxerr_auto_f64 as f32;
-                
+
                 if se_status != 0 {
                     // If there's an error, use the isophotal flux
                     flux_auto = flux;
                     fluxerr_auto = 0.0;
                 }
             }
-            
+
             let mut star = StarMetrics {
                 x,
                 y,
@@ -341,24 +351,29 @@ mod tests {
     fn test_detect_stars_sep() {
         let (w, h) = (20, 20);
         let mut data = vec![0.0; w * h];
-        
+
         // Add a bright star in the center
         data[10 * w + 10] = 100.0;
-        
+
         // Add some fainter stars
         data[5 * w + 5] = 50.0;
         data[15 * w + 15] = 50.0;
-        
+
         // Test detection with background estimation
         let result = detect_stars_with_sep_background(&data, w, h, None);
         assert!(result.is_ok());
-        
+
         let (stats, bg_metrics) = result.unwrap();
         assert!(stats.count > 0, "Should detect at least one star");
         assert!(stats.median_fwhm > 0.0, "FWHM should be positive");
         assert!(stats.median_eccentricity >= 0.0 && stats.median_eccentricity <= 1.0);
-        assert!(bg_metrics.rms >= 0.0, "Background RMS should be non-negative");
-        assert!(bg_metrics.uniformity >= 0.0 && bg_metrics.uniformity <= 1.0, 
-                "Uniformity should be between 0 and 1");
+        assert!(
+            bg_metrics.rms >= 0.0,
+            "Background RMS should be non-negative"
+        );
+        assert!(
+            bg_metrics.uniformity >= 0.0 && bg_metrics.uniformity <= 1.0,
+            "Uniformity should be between 0 and 1"
+        );
     }
 }

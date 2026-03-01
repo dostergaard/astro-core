@@ -4,9 +4,9 @@
 //! astronomical image files, including equipment information, detector
 //! settings, filters, exposure details, and more.
 
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+use std::collections::HashMap;
 
 /// Core metadata structure with nested components for astronomical images
 #[derive(Debug, Clone, Default, Serialize)]
@@ -283,17 +283,19 @@ impl AstroMetadata {
     pub fn can_calculate_plate_scale(&self) -> bool {
         self.equipment.focal_length.is_some() && self.detector.pixel_size.is_some()
     }
-    
+
     /// Calculate plate scale in arcsec/pixel
     pub fn plate_scale(&self) -> Option<f32> {
-        if let (Some(focal_length), Some(pixel_size)) = (self.equipment.focal_length, self.detector.pixel_size) {
+        if let (Some(focal_length), Some(pixel_size)) =
+            (self.equipment.focal_length, self.detector.pixel_size)
+        {
             // Plate scale in arcsec/pixel = (pixel size in μm / focal length in mm) * 206.265
             Some((pixel_size / focal_length) * 206.265)
         } else {
             None
         }
     }
-    
+
     /// Calculate field of view in arcminutes
     pub fn field_of_view(&self) -> Option<(f32, f32)> {
         if let Some(plate_scale) = self.plate_scale() {
@@ -304,29 +306,30 @@ impl AstroMetadata {
             None
         }
     }
-    
+
     /// Calculate approximate time zone offset in hours from longitude
     fn approximate_timezone_from_longitude(&self) -> Option<i32> {
-        self.mount.as_ref()
+        self.mount
+            .as_ref()
             .and_then(|mount| mount.longitude)
             .map(|longitude| (longitude / 15.0).round() as i32)
     }
-    
+
     /// Calculate the session date using location information if available
     pub fn calculate_session_date(&mut self) {
         if let Some(date_obs) = self.exposure.date_obs {
             // Default to UTC time
             let mut local_time = date_obs;
-            
+
             // If we have longitude information, adjust for approximate local time
             if let Some(tz_offset) = self.approximate_timezone_from_longitude() {
                 local_time = date_obs + chrono::Duration::hours(tz_offset as i64);
             }
-            
+
             // Get the date at noon (12:00) on the same day in the adjusted time
             let naive_noon = local_time.date_naive().and_hms_opt(12, 0, 0).unwrap();
             let noon = DateTime::from_naive_utc_and_offset(naive_noon, Utc);
-            
+
             // If the adjusted observation time is before noon, use the previous day's noon
             self.exposure.session_date = if local_time < noon {
                 Some(noon - chrono::Duration::days(1))
@@ -341,42 +344,42 @@ impl AstroMetadata {
 mod tests {
     use super::*;
     use chrono::TimeZone;
-    
+
     #[test]
     fn test_plate_scale_calculation() {
         let mut metadata = AstroMetadata::default();
-        
+
         // Test with no focal length or pixel size
         assert!(!metadata.can_calculate_plate_scale());
         assert_eq!(metadata.plate_scale(), None);
-        
+
         // Test with only focal length
         metadata.equipment.focal_length = Some(1000.0);
         assert!(!metadata.can_calculate_plate_scale());
         assert_eq!(metadata.plate_scale(), None);
-        
+
         // Test with both focal length and pixel size
         metadata.detector.pixel_size = Some(5.0);
         assert!(metadata.can_calculate_plate_scale());
-        
+
         // Calculate expected plate scale: (5.0 / 1000.0) * 206.265 = 1.031325
         let plate_scale = metadata.plate_scale().unwrap();
         assert!((plate_scale - 1.031325).abs() < 0.0001);
     }
-    
+
     #[test]
     fn test_field_of_view_calculation() {
         let mut metadata = AstroMetadata::default();
-        
+
         // Set up metadata with focal length and pixel size
         metadata.equipment.focal_length = Some(1000.0);
         metadata.detector.pixel_size = Some(5.0);
         metadata.detector.width = 4096;
         metadata.detector.height = 2160;
-        
+
         // Calculate field of view
         let fov = metadata.field_of_view().unwrap();
-        
+
         // Expected FOV:
         // plate_scale = (5.0 / 1000.0) * 206.265 = 1.031325 arcsec/pixel
         // width_arcmin = (4096 * 1.031325) / 60 = 70.48 arcmin
@@ -384,73 +387,79 @@ mod tests {
         assert!((fov.0 - 70.48).abs() < 0.1);
         assert!((fov.1 - 37.14).abs() < 0.1);
     }
-    
+
     #[test]
     fn test_timezone_from_longitude() {
         let mut metadata = AstroMetadata::default();
-        
+
         // Test with no mount information
         assert_eq!(metadata.approximate_timezone_from_longitude(), None);
-        
-        // Create mount with longitude
-        let mut mount = Mount::default();
-        
+
         // Test with longitude 0 (Greenwich)
-        mount.longitude = Some(0.0);
-        metadata.mount = Some(mount.clone());
+        metadata.mount = Some(Mount {
+            longitude: Some(0.0),
+            ..Default::default()
+        });
         assert_eq!(metadata.approximate_timezone_from_longitude(), Some(0));
-        
+
         // Test with longitude 15 (UTC+1)
-        mount.longitude = Some(15.0);
-        metadata.mount = Some(mount.clone());
+        metadata.mount = Some(Mount {
+            longitude: Some(15.0),
+            ..Default::default()
+        });
         assert_eq!(metadata.approximate_timezone_from_longitude(), Some(1));
-        
+
         // Test with longitude -75 (UTC-5, Eastern US)
-        mount.longitude = Some(-75.0);
-        metadata.mount = Some(mount.clone());
+        metadata.mount = Some(Mount {
+            longitude: Some(-75.0),
+            ..Default::default()
+        });
         assert_eq!(metadata.approximate_timezone_from_longitude(), Some(-5));
-        
+
         // Test with longitude 127.5 (UTC+9, Korea/Japan)
-        mount.longitude = Some(127.5);
-        metadata.mount = Some(mount);
+        metadata.mount = Some(Mount {
+            longitude: Some(127.5),
+            ..Default::default()
+        });
         assert_eq!(metadata.approximate_timezone_from_longitude(), Some(9));
     }
-    
+
     #[test]
     fn test_calculate_session_date() {
         let mut metadata = AstroMetadata::default();
-        
+
         // Test with no observation date
         metadata.calculate_session_date();
         assert_eq!(metadata.exposure.session_date, None);
-        
+
         // Test with observation date at 2:00 AM UTC
         let obs_date = Utc.with_ymd_and_hms(2023, 5, 15, 2, 0, 0).unwrap();
         metadata.exposure.date_obs = Some(obs_date);
-        
+
         // Without longitude, should use UTC
         metadata.calculate_session_date();
-        
+
         // Since 2:00 AM is before noon, session date should be previous day's noon
         let expected_session = Utc.with_ymd_and_hms(2023, 5, 14, 12, 0, 0).unwrap();
         assert_eq!(metadata.exposure.session_date, Some(expected_session));
-        
+
         // Test with observation date at 14:00 (2:00 PM) UTC
         let obs_date = Utc.with_ymd_and_hms(2023, 5, 15, 14, 0, 0).unwrap();
         metadata.exposure.date_obs = Some(obs_date);
-        
+
         // Without longitude, should use UTC
         metadata.calculate_session_date();
-        
+
         // Since 2:00 PM is after noon, session date should be same day's noon
         let expected_session = Utc.with_ymd_and_hms(2023, 5, 15, 12, 0, 0).unwrap();
         assert_eq!(metadata.exposure.session_date, Some(expected_session));
-        
+
         // Test with longitude -75 (UTC-5, Eastern US)
-        let mut mount = Mount::default();
-        mount.longitude = Some(-75.0);
-        metadata.mount = Some(mount);
-        
+        metadata.mount = Some(Mount {
+            longitude: Some(-75.0),
+            ..Default::default()
+        });
+
         // With obs_date at 14:00 UTC, local time is 9:00 AM
         // Since 9:00 AM is before noon, session date should be previous day's noon
         metadata.calculate_session_date();
