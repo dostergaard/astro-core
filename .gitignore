@@ -1,6 +1,5 @@
 /target
 **/*.rs.bk
-Cargo.lock
 .DS_Store
-tests/data/RGB.xisf
+tests/data/*.xisf
 tests/data/*.fits

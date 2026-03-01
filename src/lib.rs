@@ -15,17 +15,17 @@
 //! use astro_core::metadata;
 //! use astro_core::metrics;
 //! use std::path::Path;
-//! 
+//!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Load metadata from a FITS file
 //! let path = Path::new("/path/to/image.fits");
 //! let metadata = metadata::fits_parser::extract_metadata_from_path(path)?;
-//! 
+//!
 //! // Extract star metrics
 //! let (image_data, width, height) = io::fits::load_fits(path)?;
 //! let (star_stats, background) = metrics::sep_detect::detect_stars_with_sep_background(
 //!     &image_data, width, height, None)?;
-//! 
+//!
 //! // Calculate quality scores
 //! let scores = metrics::quality_metrics::calculate_quality_scores(&star_stats, &background);
 //! println!("Overall quality score: {}", scores.overall);
