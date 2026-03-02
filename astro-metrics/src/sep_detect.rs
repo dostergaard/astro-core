@@ -162,9 +162,7 @@ pub fn detect_stars_sep(
 
         // Increase SEP's internal extraction pixel stack for large/crowded images.
         // Default is 300_000, which can underflow for modern high-resolution frames.
-        let required_pixstack = width
-            .saturating_mul(height)
-            .clamp(300_000, 20_000_000);
+        let required_pixstack = width.saturating_mul(height).clamp(300_000, 20_000_000);
         let current_pixstack = sep::sep_get_extract_pixstack();
         if required_pixstack > current_pixstack {
             sep::sep_set_extract_pixstack(required_pixstack);

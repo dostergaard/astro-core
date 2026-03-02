@@ -1,5 +1,4 @@
 /target
 **/*.rs.bk
 .DS_Store
-tests/data/*.xisf
-tests/data/*.fits
+tests/data

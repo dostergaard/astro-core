@@ -185,14 +185,7 @@ If Astro Core is useful in your projects, consider supporting development via Gi
 
 ## License
 
-MIT License
+Licensed under either:
 
----
-
-# What changed (strategically)
-
-1. Removed “crate not yet published” language — that reads temporary and weak.
-2. Strengthened positioning: this is infrastructure.
-3. Clarified architecture boundaries (helps AI reasoning).
-4. Removed some redundant example overlap.
-5. Tightened tone to professional open-source.
+* MIT License
+* Apache License, Version 2.0

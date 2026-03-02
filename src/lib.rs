@@ -1,4 +1,10 @@
 // astro-core/src/lib.rs
+//! Astro Core
+//!
+//! Copyright (c) 2025 Dean Ostergaard
+//!
+//! Licensed under the MIT OR Apache-2.0 license.
+//!
 //! Core libraries for astronomical image processing and analysis.
 //!
 //! This crate provides a collection of tools for working with astronomical images,

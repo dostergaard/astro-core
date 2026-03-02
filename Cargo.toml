@@ -1,5 +1,6 @@
 # astro-core/Cargo.toml
 [workspace]
+resolver = "2"
 members = [
     "astro-io",
     "astro-metadata",
@@ -10,8 +11,28 @@ members = [
 version = "0.2.0"
 authors = ["Dean Ostergaard <dean@deanostergaard.com>"]
 edition = "2021"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/dostergaard/astro-core"
+homepage = "https://github.com/dostergaard/astro-core"
+documentation = "https://docs.rs/astro-core"
+rust-version = "1.75"
+
+[workspace.dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+fitsio = { version = "0.21.2", features = ["fitsio-src"] }
+quick-xml = "0.30"
+byteorder = "1.5"
+flate2 = "1.0"
+ndarray = "0.15"
+sep-sys = "1.3.0"
+
+astro-io = { path = "./astro-io", version = "0.2.0" }
+astro-metadata = { path = "./astro-metadata", version = "0.2.0" }
+astro-metrics = { path = "./astro-metrics", version = "0.2.0" }
 
 [package]
 name = "astro-core"
@@ -20,13 +41,17 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
 description = "Core libraries for astronomical image file analysis and manipulation."
+documentation = "https://docs.rs/astro-core"
+readme = "README.md"
 
 [dependencies]
-anyhow = "1.0.98"
-astro-io = { path = "./astro-io", version = "0.2.0" }
-astro-metadata = { path = "./astro-metadata", version = "0.2.0" }
-astro-metrics = { path = "./astro-metrics", version = "0.2.0" }
+anyhow.workspace = true
+astro-io.workspace = true
+astro-metadata.workspace = true
+astro-metrics.workspace = true
 
 [[example]]
 name = "dump_fits_metadata"
