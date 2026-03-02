@@ -154,8 +154,8 @@ println!("Quality score: {:.3}", scores.overall);
 Clone and build:
 
 ```bash
-git clone https://github.com/dostergaard/astro-core.git
-cd astro-core
+git clone https://github.com/dostergaard/ravensky-astro.git
+cd ravensky-astro
 cargo build --release
 ```
 

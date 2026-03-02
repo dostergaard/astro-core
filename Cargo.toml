@@ -1,4 +1,4 @@
-# astro-core/Cargo.toml
+# ravensky-astro/Cargo.toml
 [workspace]
 resolver = "2"
 members = [
@@ -12,8 +12,8 @@ version = "0.2.0"
 authors = ["Dean Ostergaard <dean@deanostergaard.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/dostergaard/astro-core"
-homepage = "https://github.com/dostergaard/astro-core"
+repository = "https://github.com/dostergaard/ravensky-astro"
+homepage = "https://github.com/dostergaard/ravensky-astro"
 documentation = "https://docs.rs/ravensky-astro"
 rust-version = "1.75"
 

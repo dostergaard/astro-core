@@ -64,7 +64,7 @@ mkdir -p astro-core/astro-metrics/src
 2. Set Up Workspace Cargo.toml
 Create a workspace Cargo.toml in the **astro-core directory:**
 ```toml
-# astro-core/Cargo.toml
+# ravensky-astro/Cargo.toml
 [workspace]
 members = [
     "astro-io",
