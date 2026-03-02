@@ -110,9 +110,17 @@ Add only the crates you need:
 astro-io = "0.2.0"
 astro-metadata = "0.2.0"
 astro-metrics = "0.2.0"
+# Optional meta crate that re-exports all three:
+ravensky-astro = "0.2.0"
 ```
 
 Each crate can be used independently.
+
+If you depend on the meta crate, import it as `astro_core`:
+
+```rust
+use astro_core::{io, metadata, metrics};
+```
 
 ---
 

@@ -24,16 +24,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
-name = "astro-core"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "astro-io",
- "astro-metadata",
- "astro-metrics",
-]
-
-[[package]]
 name = "astro-io"
 version = "0.2.0"
 dependencies = [
@@ -328,6 +318,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21b2ebcf727b7760c461f091f9f0f539b77b8e87f2fd88131e7f1b433b3cece4"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "ravensky-astro"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "astro-io",
+ "astro-metadata",
+ "astro-metrics",
 ]
 
 [[package]]

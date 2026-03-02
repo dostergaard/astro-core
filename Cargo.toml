@@ -14,7 +14,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/dostergaard/astro-core"
 homepage = "https://github.com/dostergaard/astro-core"
-documentation = "https://docs.rs/astro-core"
+documentation = "https://docs.rs/ravensky-astro"
 rust-version = "1.75"
 
 [workspace.dependencies]
@@ -35,7 +35,7 @@ astro-metadata = { path = "./astro-metadata", version = "0.2.0" }
 astro-metrics = { path = "./astro-metrics", version = "0.2.0" }
 
 [package]
-name = "astro-core"
+name = "ravensky-astro"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -44,8 +44,11 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 description = "Core libraries for astronomical image file analysis and manipulation."
-documentation = "https://docs.rs/astro-core"
+documentation = "https://docs.rs/ravensky-astro"
 readme = "README.md"
+
+[lib]
+name = "astro_core"
 
 [dependencies]
 anyhow.workspace = true
