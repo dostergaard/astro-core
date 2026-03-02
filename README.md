@@ -1,4 +1,4 @@
-# Astro Core
+# ravensky-astro
 
 **Astro Core** is a modular collection of Rust crates for astronomical image I/O, metadata extraction, and quantitative image analysis.
 
@@ -154,8 +154,8 @@ println!("Quality score: {:.3}", scores.overall);
 Clone and build:
 
 ```bash
-git clone https://github.com/dostergaard/ravensky-astro.git
-cd ravensky-astro
+git clone https://github.com/dostergaard/astro-core.git
+cd astro-core
 cargo build --release
 ```
 
