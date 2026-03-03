@@ -13,6 +13,14 @@ I/O operations for astronomical image formats.
 - Efficient image data handling
 - Support for various data types (8-bit, 16-bit, 32-bit float)
 
+## Windows FITS Path-Length Note
+
+On Windows, FITS file access in AstroMuninn and the ravensky-astro FITS APIs depends on CFITSIO (via `fitsio` / `fitsio-sys`). CFITSIO currently opens disk files using its `fopen`-based path handling (`file_openfile`), which in this environment follows the classic Windows path-length boundary.
+
+Use full FITS paths shorter than 260 characters (`< 260`). At 260 or more, FITS open calls may fail.
+
+This limitation is specific to FITS access through CFITSIO. XISF handling is not affected.
+
 ## Installation
 
 Add to your `Cargo.toml`:
@@ -42,6 +50,7 @@ pub fn load_fits(path: &Path) -> Result<(Vec<f32>, usize, usize)>
   - If the file cannot be opened
   - If the primary HDU is not an image
   - If the image data cannot be read
+  - On Windows, FITS open may fail when the full pathname is 260 characters or longer due to CFITSIO `fopen` path handling.
 
 ```rust
 /// Normalize pixel values to a 0.0-1.0 range

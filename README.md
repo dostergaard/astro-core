@@ -26,6 +26,16 @@ These crates are designed to be used independently or together, depending on you
 
 ---
 
+## Windows FITS Path-Length Note
+
+On Windows, FITS file access in AstroMuninn and the ravensky-astro FITS APIs depends on CFITSIO (via `fitsio` / `fitsio-sys`). CFITSIO currently opens disk files using its `fopen`-based path handling (`file_openfile`), which in this environment follows the classic Windows path-length boundary.
+
+Use full FITS paths shorter than 260 characters (`< 260`). At 260 or more, FITS open calls may fail.
+
+This limitation is specific to FITS access through CFITSIO. XISF handling is not affected.
+
+---
+
 ## Crates
 
 ### astro-io

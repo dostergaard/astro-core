@@ -17,6 +17,14 @@ Metadata extraction and handling for astronomical images.
 - Environmental data
 - Coordinate and timing utilities
 
+## Windows FITS Path-Length Note
+
+On Windows, FITS file access in AstroMuninn and the ravensky-astro FITS APIs depends on CFITSIO (via `fitsio` / `fitsio-sys`). CFITSIO currently opens disk files using its `fopen`-based path handling (`file_openfile`), which in this environment follows the classic Windows path-length boundary.
+
+Use full FITS paths shorter than 260 characters (`< 260`). At 260 or more, FITS open calls may fail.
+
+This limitation is specific to FITS access through CFITSIO. XISF handling is not affected.
+
 ## Installation
 
 Add to your `Cargo.toml`:
@@ -157,6 +165,7 @@ pub fn parse_sexagesimal(value: &str) -> Option<f64>
 - **Errors**:
   - If the file cannot be opened
   - If required headers cannot be read
+  - On Windows, FITS open may fail when the full pathname is 260 characters or longer due to CFITSIO `fopen` path handling.
 
 ### XISF Parser
 
