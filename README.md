@@ -24,6 +24,8 @@ Astro Core is intentionally modular. Each crate has a focused responsibility:
 
 These crates are designed to be used independently or together, depending on your application’s needs.
 
+Planned format-layer refactoring and migration details are documented in the [Format Architecture Plan](docs/FormatArchitecturePlan.md).
+
 ---
 
 ## Windows FITS Path-Length Note
