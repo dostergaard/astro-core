@@ -17,9 +17,9 @@
 //! # Examples
 //!
 //! ```no_run
-//! use astro_core::io;
-//! use astro_core::metadata;
-//! use astro_core::metrics;
+//! use ravensky_astro::io;
+//! use ravensky_astro::metadata;
+//! use ravensky_astro::metrics;
 //! use std::path::Path;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {

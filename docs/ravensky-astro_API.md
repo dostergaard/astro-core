@@ -1,15 +1,15 @@
-# Astro-core API Documentation
+# ravensky-astro API Documentation
 
-This document provides a comprehensive overview of the public API exposed by the astro-core crates.
+This document provides a comprehensive overview of the public API exposed by the ravensky-astro crates.
 
 ## Table of Contents
 
-- [astro-core (Root Crate)](#astro-core-root-crate)
+- [ravensky-astro (Root Crate)](#ravensky-astro-root-crate)
 - [astro-io](#astro-io)
 - [astro-metadata](#astro-metadata)
 - [astro-metrics](#astro-metrics)
 
-## astro-core (Root Crate)
+## ravensky-astro (Root Crate)
 
 The root crate re-exports all functionality from the sub-crates.
 
@@ -22,7 +22,7 @@ The root crate re-exports all functionality from the sub-crates.
 ### Example
 
 ```rust
-use astro_core::{io, metadata, metrics};
+use ravensky_astro::{io, metadata, metrics};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load a FITS file

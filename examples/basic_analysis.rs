@@ -1,4 +1,4 @@
-use astro_core::{io, metrics};
+use ravensky_astro::{io, metrics};
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

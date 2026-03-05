@@ -27,7 +27,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-astro-io = "0.2.0"
+astro-io = "0.3.0"
 ```
 
 ## API Reference

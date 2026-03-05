@@ -11,6 +11,13 @@ Windows testing showed a repeatable FITS-open boundary at full path length `260`
 
 At the same time, XISF handling is already native Rust and structurally separate from FITS behavior.
 
+Additionally, the project has an internal naming mismatch:
+
+1. The published meta crate is `ravensky-astro` on crates.io.
+2. Parts of internal documentation and code still refer to `astro-core`.
+
+That mismatch is now a source of avoidable confusion for contributors and for downstream users reading examples. It also increases the risk of accidental collisions with similarly named crates or local module identifiers. As part of this architecture work, we should align internal naming with the published crate identity.
+
 This document proposes a format-centric architecture so path handling fixes and future format support are implemented once, then reused across tools.
 
 ---
@@ -22,6 +29,18 @@ This document proposes a format-centric architecture so path handling fixes and 
 3. Solve Windows FITS path behavior once at backend level.
 4. Enable incremental addition of new formats without touching all crates.
 5. Avoid a big-bang rewrite.
+6. Align internal and external naming on `ravensky-astro` to reduce contributor friction and ambiguity.
+
+---
+
+## Naming Alignment Plan (`astro-core` -> `ravensky-astro`)
+
+This architecture plan includes a coordinated naming refactor:
+
+1. Treat `ravensky-astro` as the canonical meta-crate name in docs, examples, module references, and package metadata.
+2. Deprecate internal/project references to `astro-core` except where a temporary compatibility alias is intentionally retained during migration.
+3. Update dependent projects (including AstroMuninn) to prefer `ravensky-astro` naming in manifests, imports, and docs.
+4. Execute this rename in staged phases to avoid breaking downstream builds.
 
 ---
 
@@ -37,7 +56,8 @@ This document proposes a format-centric architecture so path handling fixes and 
 
 1. `astro-io` remains the primary image I/O facade.
 2. `astro-metadata` remains the primary metadata facade.
-3. `astro-core` re-export behavior remains stable.
+3. `ravensky-astro` remains the canonical meta crate and re-export surface.
+4. Temporary aliasing from `astro-core` may be retained only for migration compatibility, then removed.
 
 ### Optional shared contract crate (recommended)
 
@@ -111,6 +131,13 @@ Move existing XISF logic into `astro-format-xisf` early:
 2. Add integration tests for current behavior (golden files).
 3. Preserve current public APIs.
 
+## Phase 0.5 - Naming Alignment Foundation
+
+1. Audit all `astro-core` references across crates, docs, examples, CI, and release scripts.
+2. Introduce transitional compatibility where needed (for example, temporary package aliases in dependent crates).
+3. Update docs and examples to use `ravensky-astro` as canonical naming.
+4. Add CI checks or linting rules to prevent reintroducing stale `astro-core` references in new changes.
+
 ## Phase 1 - Extract XISF
 
 1. Create `astro-format-xisf`.
@@ -152,6 +179,7 @@ Move existing XISF logic into `astro-format-xisf` early:
 4. Add new explicit APIs for selecting an image/HDU without removing existing convenience APIs.
 5. Route implementation under the hood to format crates.
 6. Document backend selection (feature flags) without forcing downstream rewrites.
+7. During naming migration, prefer additive compatibility (aliases/bridges) before removals, then remove `astro-core` references in a scheduled major/minor release window as appropriate.
 
 ---
 

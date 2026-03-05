@@ -20,7 +20,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-astro-metrics = "0.2.0"
+astro-metrics = "0.3.0"
 ```
 
 ## API Reference
