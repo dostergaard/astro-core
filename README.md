@@ -1,15 +1,16 @@
 # ravensky-astro
+
 ![RavenSky Logo](assets/RavenSkyRavens_DocHeader.png)
 
-**Astro Core** is a modular collection of Rust crates for astronomical image I/O, metadata extraction, and quantitative image analysis.
+**RavenSky Astro** is a modular collection of Rust crates for astronomical image I/O, metadata extraction, and quantitative image analysis.
 
-Designed for astrophotography tools and observatory workflows, Astro Core provides reusable building blocks for working with FITS and XISF data in pure Rust.
+Designed for astrophotography tools and observatory workflows, RavenSky Astro provides reusable building blocks for working with FITS and XISF data in pure Rust.
 
 ---
 
 ## Status & Scope
 
-Astro Core is actively developed and used in production within my own astrophotography tools and workflows. The APIs are designed for reuse and stability, but the ecosystem continues to evolve as new utilities and applications are built on top of it.
+RavenSky Astro is actively developed and used in production within my own astrophotography tools and workflows. The APIs are designed for reuse and stability, but the ecosystem continues to evolve as new utilities and applications are built on top of it.
 
 The goal is not just experimentation — it is to build a durable, composable foundation for astronomical image tooling in Rust.
 
@@ -17,7 +18,7 @@ The goal is not just experimentation — it is to build a durable, composable fo
 
 ## Architecture Overview
 
-Astro Core is intentionally modular. Each crate has a focused responsibility:
+RavenSky Astro is intentionally modular. Each crate has a focused responsibility:
 
 * **astro-io** → image file loading and saving
 * **astro-metadata** → structured metadata extraction
@@ -194,13 +195,13 @@ Additional documentation is available in the `docs/` directory:
 
 Contributions, suggestions, and issue reports are welcome.
 
-Astro Core is part of a broader effort to build open, composable tools for astrophotography workflows in Rust.
+RavenSky Astro is part of a broader effort to build open, composable tools for astrophotography workflows in Rust.
 
 ---
 
 ## Support
 
-If Astro Core is useful in your projects, consider supporting development via GitHub Sponsors or other contribution channels.
+If RavenSky Astro is useful in your projects, consider supporting development via GitHub Sponsors or other contribution channels.
 
 ---
 
