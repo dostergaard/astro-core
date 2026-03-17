@@ -18,3 +18,4 @@ chrono.workspace = true
 serde.workspace = true
 fitsio.workspace = true
 log.workspace = true
+astro-io.workspace = true

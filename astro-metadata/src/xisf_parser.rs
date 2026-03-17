@@ -4,6 +4,7 @@
 //! and convert it into the AstroMetadata structure.
 
 use anyhow::{Context, Result};
+use astro_io::fits::{header_cards_to_map, FitsHeaderCard};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use log::warn;
 use std::collections::HashMap;
@@ -16,7 +17,7 @@ use super::types::{AstroMetadata, AttachmentInfo, ColorManagement, DisplayFuncti
 /// Extract metadata from an XISF file
 pub fn extract_metadata<R: Read + Seek>(reader: &mut R) -> Result<AstroMetadata> {
     let mut metadata = AstroMetadata::default();
-    let mut raw_headers = HashMap::new();
+    let mut raw_header_cards = Vec::new();
 
     // Initialize XISF metadata
     let mut xisf_metadata = XisfMetadata {
@@ -46,7 +47,7 @@ pub fn extract_metadata<R: Read + Seek>(reader: &mut R) -> Result<AstroMetadata>
     // Extract XML content from the header
     if let Ok(xml_content) = extract_xml_content(reader, header_size) {
         // Extract FITS keywords from the XML
-        extract_fits_keywords(&xml_content, &mut metadata, &mut raw_headers);
+        extract_fits_keywords(&xml_content, &mut metadata, &mut raw_header_cards);
 
         // Extract other metadata from XML attributes
         extract_xml_attributes(&xml_content, &mut metadata);
@@ -62,7 +63,8 @@ pub fn extract_metadata<R: Read + Seek>(reader: &mut R) -> Result<AstroMetadata>
     }
 
     // Store raw headers and XISF metadata
-    metadata.raw_headers = raw_headers;
+    metadata.raw_headers = header_cards_to_map(&raw_header_cards);
+    metadata.raw_header_cards = raw_header_cards;
     metadata.xisf = Some(xisf_metadata);
 
     // Calculate session date
@@ -111,7 +113,7 @@ fn extract_xml_content<R: Read>(reader: &mut R, header_size: usize) -> Result<St
 fn extract_fits_keywords(
     xml: &str,
     metadata: &mut AstroMetadata,
-    raw_headers: &mut HashMap<String, String>,
+    raw_header_cards: &mut Vec<FitsHeaderCard>,
 ) {
     let mut pos = 0;
 
@@ -128,9 +130,15 @@ fn extract_fits_keywords(
                 if let Some(value) = extract_attribute(keyword_tag, "value") {
                     // Remove quotes if present
                     let clean_value = value.trim_matches('\'').to_string();
-
-                    // Store in raw headers
-                    raw_headers.insert(name.clone(), clean_value.clone());
+                    let card_index = raw_header_cards.len() + 1;
+                    raw_header_cards.push(FitsHeaderCard {
+                        hdu_index: 0,
+                        card_index,
+                        keyword: name.clone(),
+                        value: Some(clean_value.clone()),
+                        comment: None,
+                        raw_card: None,
+                    });
 
                     // Process known FITS keywords
                     process_fits_keyword(metadata, &name, &clean_value);

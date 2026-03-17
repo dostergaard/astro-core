@@ -8,6 +8,8 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::collections::HashMap;
 
+use astro_io::fits::FitsHeaderCard;
+
 /// Core metadata structure with nested components for astronomical images
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct AstroMetadata {
@@ -31,7 +33,11 @@ pub struct AstroMetadata {
     pub color_management: Option<ColorManagement>,
     /// Image attachments (for multi-image files)
     pub attachments: Vec<AttachmentInfo>,
-    /// Raw header values for any fields not explicitly parsed
+    /// Lossless FITS-style header cards, preserving order and duplicates.
+    pub raw_header_cards: Vec<FitsHeaderCard>,
+    /// Compatibility header map for convenience lookups.
+    ///
+    /// If duplicate keywords are present, the last value wins.
     pub raw_headers: HashMap<String, String>,
 }
 

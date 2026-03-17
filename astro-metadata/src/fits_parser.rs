@@ -4,6 +4,7 @@
 //! and convert it into the AstroMetadata structure.
 
 use anyhow::{Context, Result};
+use astro_io::fits::{header_cards_to_map, read_header_cards};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use fitsio::FitsFile;
 use log::warn;
@@ -24,22 +25,9 @@ pub fn extract_metadata_from_path(path: &Path) -> Result<AstroMetadata> {
 pub fn extract_metadata(fits_file: &mut FitsFile) -> Result<AstroMetadata> {
     let hdu = fits_file.primary_hdu()?;
     let mut metadata = AstroMetadata::default();
-    let mut raw_headers = HashMap::new();
-
-    // Extract common FITS header keywords that we're interested in
-    let keywords = [
-        "TELESCOP", "FOCALLEN", "APERTURE", "INSTRUME", "CAMERA", "PIXSIZE", "XPIXSZ", "NAXIS1",
-        "NAXIS2", "XBINNING", "YBINNING", "GAIN", "EGAIN", "RDNOISE", "CCD-TEMP", "CCDTEMP",
-        "SET-TEMP", "FILTER", "OBJECT", "RA", "OBJCTRA", "DEC", "OBJCTDEC", "DATE-OBS", "EXPTIME",
-        "EXPOSURE", "IMAGETYP", "FRAME",
-    ];
-
-    // Read each keyword
-    for keyword in &keywords {
-        if let Ok(value) = hdu.read_key::<String>(fits_file, keyword) {
-            raw_headers.insert(keyword.to_string(), value);
-        }
-    }
+    let raw_header_cards =
+        read_header_cards(fits_file, hdu.number).context("Failed to extract FITS header cards")?;
+    let raw_headers = header_cards_to_map(&raw_header_cards);
 
     // Parse equipment information
     parse_equipment(&mut metadata.equipment, &raw_headers);
@@ -62,7 +50,8 @@ pub fn extract_metadata(fits_file: &mut FitsFile) -> Result<AstroMetadata> {
     // Parse WCS information
     metadata.wcs = parse_wcs(&raw_headers);
 
-    // Store raw headers for any fields we didn't explicitly parse
+    // Store the canonical lossless cards plus the compatibility lookup map.
+    metadata.raw_header_cards = raw_header_cards;
     metadata.raw_headers = raw_headers;
 
     // Calculate session date
@@ -308,9 +297,9 @@ fn parse_wcs(headers: &HashMap<String, String>) -> Option<WcsData> {
 /// Helper function to get a string value from headers
 fn get_string_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<String> {
     for key in keys {
-        if let Some(value) = headers.get(*key) {
+        if let Some(value) = get_header_value(headers, key) {
             if !value.is_empty() {
-                return Some(value.clone());
+                return Some(value.to_string());
             }
         }
     }
@@ -320,7 +309,7 @@ fn get_string_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option
 /// Helper function to get a float value from headers
 fn get_float_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<f32> {
     for key in keys {
-        if let Some(value) = headers.get(*key) {
+        if let Some(value) = get_header_value(headers, key) {
             if let Ok(float_val) = value.parse::<f32>() {
                 return Some(float_val);
             }
@@ -332,13 +321,25 @@ fn get_float_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<
 /// Helper function to get an integer value from headers
 fn get_int_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<i32> {
     for key in keys {
-        if let Some(value) = headers.get(*key) {
+        if let Some(value) = get_header_value(headers, key) {
             if let Ok(int_val) = value.parse::<i32>() {
                 return Some(int_val);
             }
         }
     }
     None
+}
+
+fn get_header_value<'a>(headers: &'a HashMap<String, String>, key: &str) -> Option<&'a str> {
+    headers
+        .get(key)
+        .map(String::as_str)
+        .or_else(|| {
+            headers
+                .iter()
+                .find(|(header_key, _)| header_key.eq_ignore_ascii_case(key))
+                .map(|(_, value)| value.as_str())
+        })
 }
 
 /// Parse sexagesimal format (HH MM SS or DD MM SS) to decimal degrees
@@ -401,6 +402,13 @@ fn parse_date_time(date_str: &str) -> Option<DateTime<Utc>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fitsio::errors::check_status;
+    use fitsio::sys::{fits_write_comment, fits_write_record};
+    use fitsio::FitsFile;
+    use std::ffi::CString;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn test_parse_sexagesimal() {
@@ -416,5 +424,69 @@ mod tests {
         // Test with invalid input
         assert_eq!(parse_sexagesimal("not a coordinate"), None);
         assert_eq!(parse_sexagesimal("12 30"), None); // Not enough parts
+    }
+
+    #[test]
+    fn test_extract_metadata_preserves_duplicate_cards() -> Result<()> {
+        let path = unique_temp_fits_path("metadata");
+        let mut file = FitsFile::create(&path).open()?;
+        let hdu = file.primary_hdu()?;
+
+        hdu.write_key(&mut file, "OBJECT", "M42".to_string())?;
+        hdu.write_key(&mut file, "EXPTIME", 300.0f32)?;
+        append_duplicate_test_records(&mut file)?;
+        drop(file);
+
+        let metadata = extract_metadata_from_path(&path)?;
+
+        assert_eq!(metadata.exposure.object_name.as_deref(), Some("M42"));
+        assert_eq!(metadata.exposure.exposure_time, Some(300.0));
+        assert_eq!(metadata.raw_headers.get("OBJECT"), Some(&"M42".to_string()));
+        assert_eq!(metadata.raw_headers.get("DUPKEY"), Some(&"two".to_string()));
+        assert_eq!(
+            metadata
+                .raw_header_cards
+                .iter()
+                .filter(|card| card.keyword == "DUPKEY")
+                .count(),
+            2
+        );
+        assert!(metadata.raw_header_cards.iter().any(|card| {
+            card.keyword == "COMMENT"
+                && card
+                    .raw_card
+                    .as_deref()
+                    .is_some_and(|raw| raw.contains("metadata parser comment"))
+        }));
+
+        fs::remove_file(path)?;
+        Ok(())
+    }
+
+    fn append_duplicate_test_records(file: &mut FitsFile) -> Result<()> {
+        let mut status = 0;
+        let raw_fits = unsafe { file.as_raw() };
+        let comment = CString::new("metadata parser comment")?;
+        let duplicate_one = CString::new("DUPKEY  = 'one'")?;
+        let duplicate_two = CString::new("DUPKEY  = 'two'")?;
+
+        unsafe {
+            fits_write_comment(raw_fits, comment.as_ptr(), &mut status);
+            fits_write_record(raw_fits, duplicate_one.as_ptr(), &mut status);
+            fits_write_record(raw_fits, duplicate_two.as_ptr(), &mut status);
+        }
+
+        check_status(status)?;
+        Ok(())
+    }
+
+    fn unique_temp_fits_path(prefix: &str) -> PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time before UNIX_EPOCH")
+            .as_nanos();
+
+        std::env::temp_dir()
+            .join(format!("astro-metadata-{prefix}-{}-{timestamp}.fits", std::process::id()))
     }
 }

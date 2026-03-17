@@ -16,6 +16,6 @@ anyhow.workspace = true
 thiserror.workspace = true
 fitsio.workspace = true
 quick-xml.workspace = true
-astro-metadata.workspace = true
+serde.workspace = true
 byteorder.workspace = true
 flate2.workspace = true

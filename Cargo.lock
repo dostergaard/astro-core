@@ -28,11 +28,11 @@ name = "astro-io"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "astro-metadata",
  "byteorder",
  "fitsio",
  "flate2",
  "quick-xml",
+ "serde",
  "thiserror",
 ]
 
@@ -41,6 +41,7 @@ name = "astro-metadata"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "astro-io",
  "chrono",
  "fitsio",
  "log",

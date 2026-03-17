@@ -101,6 +101,7 @@ pub struct AstroMetadata {
     pub xisf: Option<XisfMetadata>,
     pub color_management: Option<ColorManagement>,
     pub attachments: Vec<AttachmentInfo>,
+    pub raw_header_cards: Vec<FitsHeaderCard>,
     pub raw_headers: HashMap<String, String>,
 }
 ```

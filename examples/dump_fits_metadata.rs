@@ -116,10 +116,38 @@ fn main() {
                 println!("Field of View: {:.2}' × {:.2}' (arcmin)", width, height);
             }
 
-            // Print raw headers
-            println!("\n=== Raw FITS Headers ===");
-            for (key, value) in &metadata.raw_headers {
-                println!("{} = {}", key, value);
+            // Print canonical header cards so duplicate entries remain visible.
+            println!("\n=== Raw FITS Header Cards ===");
+            for card in &metadata.raw_header_cards {
+                match (&card.value, &card.comment, &card.raw_card) {
+                    (Some(value), Some(comment), _) => {
+                        println!(
+                            "[HDU {} #{:03}] {} = {} / {}",
+                            card.hdu_index, card.card_index, card.keyword, value, comment
+                        );
+                    }
+                    (Some(value), None, _) => {
+                        println!(
+                            "[HDU {} #{:03}] {} = {}",
+                            card.hdu_index, card.card_index, card.keyword, value
+                        );
+                    }
+                    (None, Some(comment), _) => {
+                        println!(
+                            "[HDU {} #{:03}] {} / {}",
+                            card.hdu_index, card.card_index, card.keyword, comment
+                        );
+                    }
+                    (None, None, Some(raw_card)) => {
+                        println!("[HDU {} #{:03}] {}", card.hdu_index, card.card_index, raw_card);
+                    }
+                    (None, None, None) => {
+                        println!(
+                            "[HDU {} #{:03}] {}",
+                            card.hdu_index, card.card_index, card.keyword
+                        );
+                    }
+                }
             }
         }
         Err(err) => {
