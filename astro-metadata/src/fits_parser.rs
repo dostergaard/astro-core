@@ -331,15 +331,12 @@ fn get_int_header(headers: &HashMap<String, String>, keys: &[&str]) -> Option<i3
 }
 
 fn get_header_value<'a>(headers: &'a HashMap<String, String>, key: &str) -> Option<&'a str> {
-    headers
-        .get(key)
-        .map(String::as_str)
-        .or_else(|| {
-            headers
-                .iter()
-                .find(|(header_key, _)| header_key.eq_ignore_ascii_case(key))
-                .map(|(_, value)| value.as_str())
-        })
+    headers.get(key).map(String::as_str).or_else(|| {
+        headers
+            .iter()
+            .find(|(header_key, _)| header_key.eq_ignore_ascii_case(key))
+            .map(|(_, value)| value.as_str())
+    })
 }
 
 /// Parse sexagesimal format (HH MM SS or DD MM SS) to decimal degrees
@@ -486,7 +483,9 @@ mod tests {
             .expect("system time before UNIX_EPOCH")
             .as_nanos();
 
-        std::env::temp_dir()
-            .join(format!("astro-metadata-{prefix}-{}-{timestamp}.fits", std::process::id()))
+        std::env::temp_dir().join(format!(
+            "astro-metadata-{prefix}-{}-{timestamp}.fits",
+            std::process::id()
+        ))
     }
 }

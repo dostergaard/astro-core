@@ -17,6 +17,8 @@ use super::types::{AstroMetadata, AttachmentInfo, ColorManagement, DisplayFuncti
 /// Extract metadata from an XISF file
 pub fn extract_metadata<R: Read + Seek>(reader: &mut R) -> Result<AstroMetadata> {
     let mut metadata = AstroMetadata::default();
+    metadata.detector.binning_x = 1;
+    metadata.detector.binning_y = 1;
     let mut raw_header_cards = Vec::new();
 
     // Initialize XISF metadata
@@ -175,11 +177,6 @@ fn extract_xml_attributes(xml: &str, metadata: &mut AstroMetadata) {
         if sample_format == "UInt16" {
             // It's a 16-bit image
         }
-    }
-
-    // Extract creation time
-    if let Some(creation_time) = extract_property_value(xml, "XISF:CreationTime") {
-        metadata.exposure.date_obs = parse_date_time(&creation_time);
     }
 
     // Extract creator application
@@ -640,4 +637,69 @@ fn parse_date_time(date_str: &str) -> Option<DateTime<Utc>> {
 
     warn!("Failed to parse date string: {}", date_str);
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_metadata;
+    use chrono::{TimeZone, Utc};
+    use std::io::Cursor;
+
+    #[test]
+    fn test_creation_time_does_not_override_observation_date() {
+        let xml = concat!(
+            "<?xml version=\"1.0\"?>",
+            "<xisf version=\"1.0\">",
+            "<Image geometry=\"2:2:1\" sampleFormat=\"UInt16\">",
+            "<FITSKeyword name=\"DATE-OBS\" value=\"2024-09-04T08:39:13.204\"/>",
+            "<FITSKeyword name=\"EXPTIME\" value=\"60.\"/>",
+            "</Image>",
+            "<Property id=\"XISF:CreationTime\" type=\"String\">2024-09-06T10:31:17</Property>",
+            "<Property id=\"XISF:CreatorApplication\" type=\"String\">PixInsight 1.8.9-3</Property>",
+            "</xisf>"
+        );
+
+        let header_size = xml.len() as u32;
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"XISF0100");
+        bytes.extend_from_slice(&header_size.to_le_bytes());
+        bytes.extend_from_slice(xml.as_bytes());
+
+        let metadata = extract_metadata(&mut Cursor::new(bytes)).expect("metadata should parse");
+
+        assert_eq!(
+            metadata.exposure.date_obs,
+            Some(
+                Utc.with_ymd_and_hms(2024, 9, 4, 8, 39, 13).unwrap()
+                    + chrono::Duration::milliseconds(204)
+            )
+        );
+        assert_eq!(
+            metadata.xisf.as_ref().and_then(|xisf| xisf.creation_time),
+            Some(Utc.with_ymd_and_hms(2024, 9, 6, 10, 31, 17).unwrap())
+        );
+    }
+
+    #[test]
+    fn test_missing_binning_defaults_to_one() {
+        let xml = concat!(
+            "<?xml version=\"1.0\"?>",
+            "<xisf version=\"1.0\">",
+            "<Image geometry=\"2:2:1\" sampleFormat=\"UInt16\">",
+            "<FITSKeyword name=\"OBJECT\" value=\"M31\"/>",
+            "</Image>",
+            "</xisf>"
+        );
+
+        let header_size = xml.len() as u32;
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"XISF0100");
+        bytes.extend_from_slice(&header_size.to_le_bytes());
+        bytes.extend_from_slice(xml.as_bytes());
+
+        let metadata = extract_metadata(&mut Cursor::new(bytes)).expect("metadata should parse");
+
+        assert_eq!(metadata.detector.binning_x, 1);
+        assert_eq!(metadata.detector.binning_y, 1);
+    }
 }

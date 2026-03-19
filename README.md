@@ -173,10 +173,16 @@ cd ravensky-astro
 cargo build --release
 ```
 
-Run tests:
+This workspace tracks the current stable Rust toolchain for development. The checked-in `rust-toolchain.toml` ensures `cargo`, `rustfmt`, `clippy`, and rust-analyzer all resolve through the same stable channel and component set.
+
+Run the standing maintenance loop from the workspace root:
 
 ```bash
-cargo test --workspace
+rustup update stable
+cargo update
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets
 ```
 
 ---

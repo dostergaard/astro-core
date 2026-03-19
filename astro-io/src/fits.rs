@@ -3,8 +3,8 @@
 use anyhow::{bail, Context, Result};
 use fitsio::errors::check_status;
 use fitsio::sys::{
-    fits_get_hdrspace, fits_read_keyn, fits_read_record, FLEN_CARD, FLEN_COMMENT, FLEN_KEYWORD,
-    FLEN_VALUE,
+    ffthdu, fits_get_hdrspace, fits_read_keyn, fits_read_record, FLEN_CARD, FLEN_COMMENT,
+    FLEN_KEYWORD, FLEN_VALUE,
 };
 use fitsio::FitsFile;
 use serde::Serialize;
@@ -62,7 +62,10 @@ pub fn read_primary_header_cards_from_path(path: &Path) -> Result<Vec<FitsHeader
 }
 
 /// Read all header cards from a specific HDU in an open FITS file.
-pub fn read_header_cards(fits_file: &mut FitsFile, hdu_index: usize) -> Result<Vec<FitsHeaderCard>> {
+pub fn read_header_cards(
+    fits_file: &mut FitsFile,
+    hdu_index: usize,
+) -> Result<Vec<FitsHeaderCard>> {
     let _ = fits_file
         .hdu(hdu_index)
         .with_context(|| format!("Failed to access HDU {}", hdu_index))?;
@@ -81,8 +84,12 @@ pub fn read_header_cards(fits_file: &mut FitsFile, hdu_index: usize) -> Result<V
 
     let mut cards = Vec::with_capacity(num_keys as usize);
     for card_index in 1..=num_keys {
-        let raw_card = read_raw_card(raw_fits, card_index)
-            .with_context(|| format!("Failed to read header card {} from HDU {}", card_index, hdu_index))?;
+        let raw_card = read_raw_card(raw_fits, card_index).with_context(|| {
+            format!(
+                "Failed to read header card {} from HDU {}",
+                card_index, hdu_index
+            )
+        })?;
         let (keyword, value, comment) = read_card_fields(raw_fits, card_index, &raw_card);
 
         cards.push(FitsHeaderCard {
@@ -100,7 +107,7 @@ pub fn read_header_cards(fits_file: &mut FitsFile, hdu_index: usize) -> Result<V
 
 /// Read all header cards from every HDU in an open FITS file.
 pub fn read_all_header_cards(fits_file: &mut FitsFile) -> Result<Vec<FitsHeaderCard>> {
-    let num_hdus = fits_file.num_hdus()?;
+    let num_hdus = read_num_hdus(fits_file)?;
     let mut cards = Vec::new();
 
     for hdu_index in 0..num_hdus {
@@ -148,6 +155,19 @@ pub fn normalize_pixels(pixels: &[f32]) -> Vec<f32> {
 
     // Normalize each pixel.
     pixels.iter().map(|&p| (p - min_val) / range).collect()
+}
+
+fn read_num_hdus(fits_file: &mut FitsFile) -> Result<usize> {
+    let raw_fits = unsafe { fits_file.as_raw() };
+    let mut num_hdus = 0;
+    let mut status = 0;
+
+    unsafe {
+        ffthdu(raw_fits, &mut num_hdus, &mut status);
+    }
+
+    check_status(status).context("Failed to count FITS HDUs")?;
+    Ok(num_hdus as usize)
 }
 
 fn read_raw_card(raw_fits: *mut fitsio::sys::fitsfile, card_index: i32) -> Result<String> {
@@ -215,7 +235,10 @@ fn clean_header_value(raw_value: &str) -> String {
     let trimmed = raw_value.trim();
 
     if trimmed.len() >= 2 && trimmed.starts_with('\'') && trimmed.ends_with('\'') {
-        trimmed[1..trimmed.len() - 1].replace("''", "'").trim_end().to_string()
+        trimmed[1..trimmed.len() - 1]
+            .replace("''", "'")
+            .trim_end()
+            .to_string()
     } else {
         trimmed.to_string()
     }
@@ -232,7 +255,12 @@ fn parse_keyword_from_raw_card(raw_card: &str) -> String {
         return "HIERARCH".to_string();
     }
 
-    raw_card.chars().take(8).collect::<String>().trim().to_string()
+    raw_card
+        .chars()
+        .take(8)
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
 fn c_string_to_string(buffer: &[c_char]) -> String {
@@ -339,10 +367,12 @@ mod tests {
         extension.write_key(&mut file, "EXTKEY", 42i64)?;
 
         let cards = read_all_header_cards(&mut file)?;
-        assert!(cards.iter().any(|card| card.hdu_index == 0 && card.keyword == "OBJECT"));
         assert!(cards
             .iter()
-            .any(|card| card.hdu_index == 1 && card.keyword == "EXTKEY" && card.value.as_deref() == Some("42")));
+            .any(|card| card.hdu_index == 0 && card.keyword == "OBJECT"));
+        assert!(cards.iter().any(|card| card.hdu_index == 1
+            && card.keyword == "EXTKEY"
+            && card.value.as_deref() == Some("42")));
 
         fs::remove_file(path)?;
         Ok(())
@@ -405,6 +435,9 @@ mod tests {
             .expect("system time before UNIX_EPOCH")
             .as_nanos();
 
-        std::env::temp_dir().join(format!("astro-io-{prefix}-{}-{timestamp}.fits", std::process::id()))
+        std::env::temp_dir().join(format!(
+            "astro-io-{prefix}-{}-{timestamp}.fits",
+            std::process::id()
+        ))
     }
 }
