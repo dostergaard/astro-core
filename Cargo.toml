@@ -76,3 +76,7 @@ path = "examples/dump_xisf_metadata.rs"
 [[example]]
 name = "metadata_stats"
 path = "examples/metadata_stats.rs"
+
+[[example]]
+name = "sensor_temperature_qa"
+path = "examples/sensor_temperature_qa.rs"

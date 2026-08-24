@@ -165,6 +165,23 @@ println!("Quality score: {:.3}", scores.overall);
 
 ---
 
+## Example: Sensor Temperature QA
+
+The `sensor_temperature_qa` example recursively evaluates FITS and XISF files
+whose `CCD-TEMP` value differs from `SET-TEMP` by more than a supplied limit.
+It previews matching files and asks for confirmation before moving them.
+
+```bash
+cargo run --example sensor_temperature_qa -- /path/to/input /path/to/output 0.5
+```
+
+The input directory, output directory, and decimal temperature limit can also
+be supplied interactively when omitted. Moved files retain their paths relative
+to the input directory—for example, `input/Lights/M31/frame.fit` becomes
+`output/Lights/M31/frame.fit`. Existing output files are never overwritten.
+
+---
+
 ## Development
 
 Clone and build:
