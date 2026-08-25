@@ -17,6 +17,18 @@ Define a canonical in-memory metadata and image-document model that:
 
 The desired outcome is a staged architecture where FITS and XISF both map into the same canonical document layer, while preserving format-specific raw access and compatibility with existing published APIs during migration.
 
+### Adopted coordinate-handling decision
+
+FITS-style `RA`/`DEC` and `OBJCTRA`/`OBJCTDEC` are independently sourced
+keyword pairs. The library must not infer that they are interchangeable or
+that either represents telescope pointing, a target, or an image center.
+
+The current compatibility API retains its legacy selected `Exposure::ra` and
+`Exposure::dec` values (`RA`/`DEC` preferred, with `OBJCT*` fallback), while
+`Exposure::header_coordinates` preserves both parsed pairs independently.
+Raw header cards remain the lossless evidence. Consumers requiring source
+identity must use the independent pairs rather than the legacy fields.
+
 ## 2. Constraints and Non-Goals
 
 Constraints:
@@ -24,6 +36,9 @@ Constraints:
 - `ravensky-astro` crates are already published, so public API churn should be minimized and staged.
 - AstroMuninn currently depends on `astro_metadata::fits_parser` and `astro_metadata::xisf_parser` for metadata extraction.
 - Metadata-only consumers must continue to work even when image decoding support is narrower than metadata parsing support.
+- Coordinate metadata must preserve source-key identity and must not assign
+  telescope-pointing, target, or image-center semantics without producer-specific
+  evidence.
 - The current coarse-grained crate split remains the intended structure:
   - `astro-io` owns raw format access
   - `astro-metadata` owns structured parsing and normalization
@@ -47,6 +62,9 @@ Today the repository is only partly aligned with the intended boundary:
 - `astro-io` XISF image loading has been hardened and is now explicit about its supported decode subset.
 - There is not yet a canonical document model that both FITS and XISF map into.
 - The current metadata structs are useful but tightly tied to today’s parser organization and may not be the right full raw-to-canonical boundary.
+- `Exposure::header_coordinates` now preserves the FITS-style `RA`/`DEC` and
+  `OBJCTRA`/`OBJCTDEC` pairs independently in both FITS and XISF extraction.
+  The legacy `Exposure::ra` and `dec` fields remain a compatibility projection.
 
 The repo also lacks the broad sample corpus needed to confidently shape the model across:
 
@@ -108,6 +126,11 @@ The canonical layer should distinguish:
 - raw-source evidence or provenance
 - derived values
 - uncertainty, ambiguity, and conflicts
+
+For coordinates specifically, the canonical layer must model source identity
+and raw provenance separately from any optional domain interpretation. It must
+not collapse target, pointing, or WCS-derived positions into a single field
+solely because their numeric values agree.
 
 ### Projection / Mapping Layer
 
@@ -208,6 +231,8 @@ Start with:
 - filter/target/session fields
 - WCS
 - raw provenance attachment points
+- source-identified coordinate observations, including their raw evidence and
+  parsed unit representation without assigning observational semantics
 
 Defer broad public stabilization until the mappings have been tested against the corpus.
 
@@ -220,6 +245,9 @@ These adapters should:
 - preserve provenance
 - distinguish absent vs invalid vs conflicting information
 - avoid hiding ambiguity
+- retain independent coordinate sources and record any optional consistency
+  comparison as diagnostic evidence, never as a reason to overwrite a source
+  value
 
 ### Step 5: Add normalization reporting
 
@@ -243,6 +271,10 @@ Reimplement:
 on top of the raw + canonical path, while preserving their existing public signatures as long as possible.
 
 This is the key compatibility step for AstroMuninn.
+
+The existing `Exposure::header_coordinates` projection is an interim migration
+pattern: retain compatibility fields while directing new consumers toward
+source-preserving metadata. Do not expand the legacy selected-coordinate policy.
 
 ### Step 7: Add cross-format regression tests
 

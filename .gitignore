@@ -2,3 +2,5 @@
 **/*.rs.bk
 .DS_Store
 tests/data
+# External reference material, maintained outside this repository.
+docs/fits_standard40aa-le.pdf

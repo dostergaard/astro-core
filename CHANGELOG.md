@@ -1,18 +1,45 @@
 # Changelog
 
-All notable changes to the Astro Core project will be documented in this file.
+All notable changes to RavenSky Astro will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-25
+
+### Added
+- `Exposure::header_coordinates`, `HeaderCoordinatePairs`, and `CoordinatePair`
+  preserve `RA`/`DEC` and `OBJCTRA`/`OBJCTDEC` as independently sourced
+  coordinate pairs for FITS and XISF metadata extraction
+- `sensor_temperature_qa` example, which recursively evaluates FITS/XISF sensor
+  temperature deviations, previews candidates, confirms moves, preserves relative
+  paths, and safely handles cross-volume moves
+- Regression coverage for FITS/XISF coordinate-source preservation, sexagesimal
+  coordinate handling, coordinate bounds, sensor-temperature selection, and safe
+  cross-volume example moves
+
 ### Changed
+- `Exposure::ra` and `Exposure::dec` are now documented as legacy convenience
+  fields. They continue to prefer `RA`/`DEC` and fall back to `OBJCTRA`/`OBJCTDEC`;
+  new consumers should use `header_coordinates` when source identity matters
+- Coordinate projection is shared by the FITS and XISF parsers, preventing format
+  drift while intentionally avoiding target, pointing, or image-center inference
 - Hardened `astro-io` XISF loading to return explicit errors for malformed or unsupported files instead of falling back to hardcoded offsets or placeholder pixel data
 - Removed direct stdout output from the `astro-io` XISF loader and limited diagnostics to library-appropriate logging
 
-### Added
-- Regression tests covering malformed XISF headers, unsupported sample formats, truncated payloads, and loading of a real sample XISF file
+### Fixed
+- FITS numeric `RA` values expressed in degrees are no longer incorrectly
+  converted from hours a second time
+- FITS `OBJCTRA` and `OBJCTDEC` now support sexagesimal fallback parsing, and
+  invalid right-ascension or declination ranges are rejected with warnings
+
+### Documentation
+- Documented source-preserving coordinate handling and staged migration guidance
+  in the canonical metadata-model strategy and `astro-metadata` README
+- Added the external FITS standard PDF to `.gitignore` because it is maintained
+  outside this repository
 
 ## [0.4.0] - 2026-03-23
 

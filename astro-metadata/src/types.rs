@@ -117,10 +117,21 @@ pub struct Filter {
 pub struct Exposure {
     /// Object/target name
     pub object_name: Option<String>,
-    /// Right ascension in degrees
+    /// Legacy convenience right ascension in decimal degrees.
+    ///
+    /// This selects `RA` when available and otherwise falls back to `OBJCTRA`.
+    /// Consumers that need source identity should use [`Self::header_coordinates`].
     pub ra: Option<f64>,
-    /// Declination in degrees
+    /// Legacy convenience declination in decimal degrees.
+    ///
+    /// This selects `DEC` when available and otherwise falls back to `OBJCTDEC`.
+    /// Consumers that need source identity should use [`Self::header_coordinates`].
     pub dec: Option<f64>,
+    /// Independently parsed coordinate pairs, identified by their source keywords.
+    ///
+    /// These fields preserve keyword identity without assigning telescope-pointing,
+    /// target, or image-center semantics to either pair.
+    pub header_coordinates: HeaderCoordinatePairs,
     /// Observation date/time (UTC)
     pub date_obs: Option<DateTime<Utc>>,
     /// Session date (calculated from date_obs by subtracting 12 hours)
@@ -141,6 +152,30 @@ pub struct Exposure {
     pub project_name: Option<String>,
     /// Session identifier
     pub session_id: Option<String>,
+}
+
+/// A right-ascension and declination pair represented in decimal degrees.
+///
+/// A missing component is preserved as `None`; the parser does not require the
+/// two values to appear together or to describe the same physical coordinate.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct CoordinatePair {
+    /// Right ascension in decimal degrees, when valid and parseable.
+    pub ra: Option<f64>,
+    /// Declination in decimal degrees, when valid and parseable.
+    pub dec: Option<f64>,
+}
+
+/// Coordinate pairs independently derived from FITS-style header keywords.
+///
+/// `RA`/`DEC` and `OBJCTRA`/`OBJCTDEC` remain separate because their semantic
+/// relationship is producer-specific. The raw cards retain the original values.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct HeaderCoordinatePairs {
+    /// Values from the `RA` and `DEC` keywords.
+    pub ra_dec: CoordinatePair,
+    /// Values from the `OBJCTRA` and `OBJCTDEC` keywords.
+    pub objctra_objctdec: CoordinatePair,
 }
 
 /// Mount and guiding information
