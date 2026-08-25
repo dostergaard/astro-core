@@ -11,9 +11,12 @@ use log::warn;
 use std::collections::HashMap;
 use std::path::Path;
 
+use super::coordinates::populate_header_coordinates;
 use super::types::{
     AstroMetadata, Detector, Environment, Equipment, Exposure, Filter, Mount, WcsData,
 };
+
+pub use super::coordinates::parse_sexagesimal;
 
 /// Extract metadata from a FITS file path
 pub fn extract_metadata_from_path(path: &Path) -> Result<AstroMetadata> {
@@ -154,9 +157,7 @@ fn parse_filter(filter: &mut Filter, headers: &HashMap<String, String>) {
 fn parse_exposure(exposure: &mut Exposure, headers: &HashMap<String, String>) {
     exposure.object_name = get_string_header(headers, &["OBJECT"]);
 
-    // Parse coordinates
-    exposure.ra = get_float_header(headers, &["RA", "OBJCTRA"]).map(|ra| ra as f64 * 15.0); // Convert hours to degrees
-    exposure.dec = get_float_header(headers, &["DEC", "OBJCTDEC"]).map(|dec| dec as f64);
+    populate_header_coordinates(exposure, headers);
 
     // Parse date/time
     if let Some(date_str) = get_string_header(headers, &["DATE-OBS"]) {
@@ -339,41 +340,6 @@ fn get_header_value<'a>(headers: &'a HashMap<String, String>, key: &str) -> Opti
     })
 }
 
-/// Parse sexagesimal format (HH MM SS or DD MM SS) to decimal degrees
-///
-/// This function converts a string in sexagesimal format (hours/degrees, minutes, seconds)
-/// to decimal degrees. It handles both positive and negative values.
-///
-/// # Examples
-///
-/// ```
-/// use astro_metadata::fits_parser::parse_sexagesimal;
-///
-/// // Parse right ascension: "12 34 56" (12h 34m 56s)
-/// let ra_deg = parse_sexagesimal("12 34 56").map(|ra| ra * 15.0); // Convert hours to degrees
-///
-/// // Parse declination: "-45 12 34" (-45° 12' 34")
-/// let dec_deg = parse_sexagesimal("-45 12 34");
-/// ```
-pub fn parse_sexagesimal(value: &str) -> Option<f64> {
-    let parts: Vec<&str> = value.split_whitespace().collect();
-    if parts.len() >= 3 {
-        if let (Ok(h), Ok(m), Ok(s)) = (
-            parts[0].parse::<f64>(),
-            parts[1].parse::<f64>(),
-            parts[2].parse::<f64>(),
-        ) {
-            let sign = if h < 0.0 || value.starts_with('-') {
-                -1.0
-            } else {
-                1.0
-            };
-            return Some(sign * (h.abs() + m / 60.0 + s / 3600.0));
-        }
-    }
-    None
-}
-
 /// Helper function to parse date/time strings
 fn parse_date_time(date_str: &str) -> Option<DateTime<Utc>> {
     // Try different date formats
@@ -421,6 +387,109 @@ mod tests {
         // Test with invalid input
         assert_eq!(parse_sexagesimal("not a coordinate"), None);
         assert_eq!(parse_sexagesimal("12 30"), None); // Not enough parts
+    }
+
+    #[test]
+    fn parse_exposure_preserves_numeric_ra_in_degrees() {
+        let headers = HashMap::from([
+            ("RA".to_owned(), "237.502568422944".to_owned()),
+            ("OBJCTRA".to_owned(), "15 50 01".to_owned()),
+        ]);
+        let mut exposure = Exposure::default();
+
+        parse_exposure(&mut exposure, &headers);
+
+        assert_eq!(exposure.ra, Some(237.502568422944));
+    }
+
+    #[test]
+    fn parse_exposure_preserves_each_header_coordinate_pair_independently() {
+        let headers = HashMap::from([
+            ("RA".to_owned(), "237.502568422944".to_owned()),
+            ("DEC".to_owned(), "43.8990616679659".to_owned()),
+            ("OBJCTRA".to_owned(), "15 50 01".to_owned()),
+            ("OBJCTDEC".to_owned(), "+43 53 57".to_owned()),
+        ]);
+        let mut exposure = Exposure::default();
+
+        parse_exposure(&mut exposure, &headers);
+
+        assert_eq!(
+            exposure.header_coordinates.ra_dec.ra,
+            Some(237.502568422944)
+        );
+        assert_eq!(
+            exposure.header_coordinates.ra_dec.dec,
+            Some(43.8990616679659)
+        );
+        assert!(
+            (exposure.header_coordinates.objctra_objctdec.ra.unwrap() - 237.50416666666666).abs()
+                < 0.000_000_001
+        );
+        assert!(
+            (exposure.header_coordinates.objctra_objctdec.dec.unwrap() - 43.899166666666666).abs()
+                < 0.000_000_001
+        );
+
+        assert_eq!(exposure.ra, exposure.header_coordinates.ra_dec.ra);
+        assert_eq!(exposure.dec, exposure.header_coordinates.ra_dec.dec);
+    }
+
+    #[test]
+    fn parse_exposure_falls_back_to_sexagesimal_objctra_in_hours() {
+        let headers = HashMap::from([("OBJCTRA".to_owned(), "15 50 01".to_owned())]);
+        let mut exposure = Exposure::default();
+
+        parse_exposure(&mut exposure, &headers);
+
+        assert_eq!(exposure.ra, Some(237.50416666666666));
+    }
+
+    #[test]
+    fn parse_exposure_converts_high_sexagesimal_objctra_to_degrees() {
+        let headers = HashMap::from([("OBJCTRA".to_owned(), "23 59 59".to_owned())]);
+        let mut exposure = Exposure::default();
+
+        parse_exposure(&mut exposure, &headers);
+
+        assert!((exposure.ra.unwrap() - 359.99583333333334).abs() < 0.000_000_001);
+    }
+
+    #[test]
+    fn parse_exposure_rejects_out_of_range_right_ascension() {
+        let headers = HashMap::from([("RA".to_owned(), "360.0".to_owned())]);
+        let mut exposure = Exposure::default();
+
+        parse_exposure(&mut exposure, &headers);
+
+        assert_eq!(exposure.ra, None);
+    }
+
+    #[test]
+    fn parse_exposure_rejects_out_of_range_declinations_from_both_sources() {
+        let headers = HashMap::from([
+            ("DEC".to_owned(), "90.1".to_owned()),
+            ("OBJCTDEC".to_owned(), "-90 00 01".to_owned()),
+        ]);
+        let mut exposure = Exposure::default();
+
+        parse_exposure(&mut exposure, &headers);
+
+        assert_eq!(exposure.header_coordinates.ra_dec.dec, None);
+        assert_eq!(exposure.header_coordinates.objctra_objctdec.dec, None);
+        assert_eq!(exposure.dec, None);
+    }
+
+    #[test]
+    fn parse_exposure_accepts_right_ascension_degree_boundaries() {
+        for value in ["0.0", "359.9"] {
+            let headers = HashMap::from([("RA".to_owned(), value.to_owned())]);
+            let mut exposure = Exposure::default();
+
+            parse_exposure(&mut exposure, &headers);
+
+            assert_eq!(exposure.ra, Some(value.parse().unwrap()));
+        }
     }
 
     #[test]

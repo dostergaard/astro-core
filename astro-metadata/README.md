@@ -31,7 +31,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-astro-metadata = "0.4.0"
+astro-metadata = "0.5.0"
 ```
 
 ## API Reference
@@ -128,8 +128,11 @@ pub struct Filter {
 ```rust
 pub struct Exposure {
     pub object_name: Option<String>,
+    /// Legacy convenience fields: RA/DEC take precedence over OBJCTRA/OBJCTDEC.
     pub ra: Option<f64>,
     pub dec: Option<f64>,
+    /// Source-preserving FITS-style coordinate pairs.
+    pub header_coordinates: HeaderCoordinatePairs,
     pub date_obs: Option<DateTime<Utc>>,
     pub session_date: Option<DateTime<Utc>>,
     pub exposure_time: Option<f32>,
@@ -140,6 +143,23 @@ pub struct Exposure {
     pub dither_offset_y: Option<f32>,
     pub project_name: Option<String>,
     pub session_id: Option<String>,
+}
+```
+
+`header_coordinates` retains `RA`/`DEC` and `OBJCTRA`/`OBJCTDEC` as distinct
+keyword-identified pairs. It does not infer that either pair describes the
+target, telescope pointing, or image center. The original header values remain
+available in `raw_header_cards` and `raw_headers`.
+
+```rust
+pub struct HeaderCoordinatePairs {
+    pub ra_dec: CoordinatePair,
+    pub objctra_objctdec: CoordinatePair,
+}
+
+pub struct CoordinatePair {
+    pub ra: Option<f64>,
+    pub dec: Option<f64>,
 }
 ```
 

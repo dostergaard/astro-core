@@ -12,6 +12,7 @@ use std::fs::File;
 use std::io::{Read, Seek};
 use std::path::Path;
 
+use super::coordinates::populate_header_coordinates;
 use super::types::{AstroMetadata, AttachmentInfo, ColorManagement, DisplayFunction, XisfMetadata};
 
 /// Extract metadata from an XISF file
@@ -66,6 +67,7 @@ pub fn extract_metadata<R: Read + Seek>(reader: &mut R) -> Result<AstroMetadata>
 
     // Store raw headers and XISF metadata
     metadata.raw_headers = header_cards_to_map(&raw_header_cards);
+    populate_header_coordinates(&mut metadata.exposure, &metadata.raw_headers);
     metadata.raw_header_cards = raw_header_cards;
     metadata.xisf = Some(xisf_metadata);
 
@@ -396,28 +398,7 @@ fn process_fits_keyword(metadata: &mut AstroMetadata, name: &str, value: &str) {
 
         // Exposure information
         "OBJECT" => metadata.exposure.object_name = Some(value.to_string()),
-        "RA" | "OBJCTRA" => {
-            // Handle both numeric and sexagesimal formats
-            if let Ok(ra) = value.parse::<f32>() {
-                metadata.exposure.ra = Some(ra as f64);
-            } else {
-                // Try to parse sexagesimal format (HH MM SS)
-                if let Some(ra_deg) = parse_sexagesimal(value) {
-                    metadata.exposure.ra = Some(ra_deg * 15.0); // Convert hours to degrees
-                }
-            }
-        }
-        "DEC" | "OBJCTDEC" => {
-            // Handle both numeric and sexagesimal formats
-            if let Ok(dec) = value.parse::<f32>() {
-                metadata.exposure.dec = Some(dec as f64);
-            } else {
-                // Try to parse sexagesimal format (DD MM SS)
-                if let Some(dec_deg) = parse_sexagesimal(value) {
-                    metadata.exposure.dec = Some(dec_deg);
-                }
-            }
-        }
+        "RA" | "OBJCTRA" | "DEC" | "OBJCTDEC" => {}
         "DATE-OBS" => metadata.exposure.date_obs = parse_date_time(value),
         "EXPTIME" | "EXPOSURE" => metadata.exposure.exposure_time = value.parse().ok(),
         "IMAGETYP" | "FRAME" => metadata.exposure.frame_type = Some(value.to_string()),
@@ -597,26 +578,6 @@ fn extract_property_value(xml: &str, property_id: &str) -> Option<String> {
     None
 }
 
-/// Parse sexagesimal format (HH MM SS or DD MM SS) to decimal degrees
-fn parse_sexagesimal(value: &str) -> Option<f64> {
-    let parts: Vec<&str> = value.split_whitespace().collect();
-    if parts.len() >= 3 {
-        if let (Ok(h), Ok(m), Ok(s)) = (
-            parts[0].parse::<f64>(),
-            parts[1].parse::<f64>(),
-            parts[2].parse::<f64>(),
-        ) {
-            let sign = if h < 0.0 || value.starts_with('-') {
-                -1.0
-            } else {
-                1.0
-            };
-            return Some(sign * (h.abs() + m / 60.0 + s / 3600.0));
-        }
-    }
-    None
-}
-
 /// Helper function to parse date/time strings
 fn parse_date_time(date_str: &str) -> Option<DateTime<Utc>> {
     // Try different date formats
@@ -701,5 +662,59 @@ mod tests {
 
         assert_eq!(metadata.detector.binning_x, 1);
         assert_eq!(metadata.detector.binning_y, 1);
+    }
+
+    #[test]
+    fn test_coordinate_keyword_pairs_are_preserved_independently() {
+        let xml = concat!(
+            "<?xml version=\"1.0\"?>",
+            "<xisf version=\"1.0\">",
+            "<Image geometry=\"2:2:1\" sampleFormat=\"UInt16\">",
+            "<FITSKeyword name=\"RA\" value=\"237.502568422944\"/>",
+            "<FITSKeyword name=\"DEC\" value=\"43.8990616679659\"/>",
+            "<FITSKeyword name=\"OBJCTRA\" value=\"15 50 01\"/>",
+            "<FITSKeyword name=\"OBJCTDEC\" value=\"+43 53 57\"/>",
+            "</Image>",
+            "</xisf>"
+        );
+
+        let header_size = xml.len() as u32;
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"XISF0100");
+        bytes.extend_from_slice(&header_size.to_le_bytes());
+        bytes.extend_from_slice(xml.as_bytes());
+
+        let metadata = extract_metadata(&mut Cursor::new(bytes)).expect("metadata should parse");
+
+        assert_eq!(
+            metadata.exposure.header_coordinates.ra_dec.ra,
+            Some(237.502568422944)
+        );
+        assert_eq!(
+            metadata.exposure.header_coordinates.ra_dec.dec,
+            Some(43.8990616679659)
+        );
+        assert!(
+            (metadata
+                .exposure
+                .header_coordinates
+                .objctra_objctdec
+                .ra
+                .unwrap()
+                - 237.50416666666666)
+                .abs()
+                < 0.000_000_001
+        );
+        assert!(
+            (metadata
+                .exposure
+                .header_coordinates
+                .objctra_objctdec
+                .dec
+                .unwrap()
+                - 43.899166666666666)
+                .abs()
+                < 0.000_000_001
+        );
     }
 }
